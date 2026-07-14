@@ -64,6 +64,7 @@ export default async function StatusDoDiaDetalhePage({
     .single<ProfileSummary>()
 
   const isGerencia = profile?.cargo === 'admin' || profile?.cargo === 'gerente'
+  const isAdmin = profile?.cargo === 'admin'
 
   if (!isGerencia) {
     redirect('/')
@@ -125,6 +126,7 @@ export default async function StatusDoDiaDetalhePage({
         nome={profile?.nome ?? user.email ?? ''}
         cargo={profile?.cargo ?? ''}
         isGerencia={isGerencia}
+        isAdmin={isAdmin}
         active="status-do-dia"
       />
       <div className="flex flex-1 flex-col gap-4 px-4 py-8 sm:px-10">

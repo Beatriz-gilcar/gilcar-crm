@@ -35,6 +35,7 @@ export default async function NewOrdemPage({
     .single<ProfileSummary>()
 
   const isGerencia = profile?.cargo === 'admin' || profile?.cargo === 'gerente'
+  const isAdmin = profile?.cargo === 'admin'
 
   let unidades: Unidade[] = []
   if (isGerencia) {
@@ -61,6 +62,7 @@ export default async function NewOrdemPage({
         nome={profile?.nome ?? user.email ?? ''}
         cargo={profile?.cargo ?? ''}
         isGerencia={isGerencia}
+        isAdmin={isAdmin}
         active="ordens"
       />
       <div className="flex flex-1 justify-center px-4 py-8">

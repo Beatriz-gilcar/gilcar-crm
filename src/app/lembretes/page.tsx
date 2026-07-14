@@ -33,6 +33,7 @@ export default async function LembretesPage() {
     .single<ProfileSummary>()
 
   const isGerencia = profile?.cargo === 'admin' || profile?.cargo === 'gerente'
+  const isAdmin = profile?.cargo === 'admin'
 
   const { data: lembretes } = await supabase
     .from('lembretes')
@@ -49,6 +50,7 @@ export default async function LembretesPage() {
         nome={profile?.nome ?? user.email ?? ''}
         cargo={profile?.cargo ?? ''}
         isGerencia={isGerencia}
+        isAdmin={isAdmin}
         active="lembretes"
       />
       <div className="flex flex-1 flex-col gap-4 px-4 py-8 sm:px-10">

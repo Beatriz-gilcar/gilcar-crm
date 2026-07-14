@@ -40,6 +40,7 @@ export default async function DashboardPage() {
     .single<ProfileSummary>()
 
   const isGerencia = profile?.cargo === 'admin' || profile?.cargo === 'gerente'
+  const isAdmin = profile?.cargo === 'admin'
 
   const [{ count: totalLeads }, { count: totalAtendimentos }, { count: lembretesPendentes }] =
     await Promise.all([
@@ -72,6 +73,7 @@ export default async function DashboardPage() {
         nome={profile?.nome ?? user.email ?? ''}
         cargo={profile?.cargo ?? ''}
         isGerencia={isGerencia}
+        isAdmin={isAdmin}
         active="dashboard"
       />
       <div className="flex flex-1 flex-col gap-4 px-4 py-8 sm:px-10">

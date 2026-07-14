@@ -1,17 +1,27 @@
 import Link from 'next/link'
 import { logout } from '@/app/actions'
 
-type NavKey = 'leads' | 'lembretes' | 'dashboard' | 'status-do-dia' | 'categorias' | 'estoque' | 'ordens'
+type NavKey =
+  | 'leads'
+  | 'lembretes'
+  | 'dashboard'
+  | 'status-do-dia'
+  | 'categorias'
+  | 'estoque'
+  | 'ordens'
+  | 'admin'
 
 export function Topbar({
   nome,
   cargo,
   isGerencia,
+  isAdmin = false,
   active,
 }: {
   nome: string
   cargo: string
   isGerencia: boolean
+  isAdmin?: boolean
   active: NavKey | ''
 }) {
   const navItems: { key: NavKey; href: string; label: string }[] = [
@@ -25,6 +35,10 @@ export function Topbar({
   if (isGerencia) {
     navItems.push({ key: 'status-do-dia', href: '/status-do-dia', label: 'Status do Dia' })
     navItems.push({ key: 'categorias', href: '/categorias', label: 'Categorias' })
+  }
+
+  if (isAdmin) {
+    navItems.push({ key: 'admin', href: '/admin', label: 'Admin' })
   }
 
   return (

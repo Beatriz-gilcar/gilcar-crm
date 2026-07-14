@@ -83,6 +83,7 @@ export default async function OrdemDetailPage({
     .single<ProfileSummary>()
 
   const isGerencia = profile?.cargo === 'admin' || profile?.cargo === 'gerente'
+  const isAdmin = profile?.cargo === 'admin'
 
   const { data: ordem } = await supabase
     .from('ordens_servico')
@@ -147,6 +148,7 @@ export default async function OrdemDetailPage({
         nome={profile?.nome ?? user.email ?? ''}
         cargo={profile?.cargo ?? ''}
         isGerencia={isGerencia}
+        isAdmin={isAdmin}
         active="ordens"
       />
       <div className="flex flex-1 justify-center px-4 py-8">

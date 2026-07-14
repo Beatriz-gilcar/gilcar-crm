@@ -28,6 +28,7 @@ export default async function CategoriasPage({
     .single<ProfileSummary>()
 
   const isGerencia = profile?.cargo === 'admin' || profile?.cargo === 'gerente'
+  const isAdmin = profile?.cargo === 'admin'
 
   const { data: categorias } = await supabase
     .from('categorias')
@@ -41,6 +42,7 @@ export default async function CategoriasPage({
         nome={profile?.nome ?? user.email ?? ''}
         cargo={profile?.cargo ?? ''}
         isGerencia={isGerencia}
+        isAdmin={isAdmin}
         active="categorias"
       />
       <div className="flex flex-1 justify-center px-4 py-8">

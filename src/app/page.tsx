@@ -25,6 +25,7 @@ export default async function Home() {
     .single<ProfileSummary>()
 
   const isGerencia = profile?.cargo === 'admin' || profile?.cargo === 'gerente'
+  const isAdmin = profile?.cargo === 'admin'
 
   return (
     <>
@@ -32,6 +33,7 @@ export default async function Home() {
         nome={profile?.nome ?? user.email ?? ''}
         cargo={profile?.cargo ?? ''}
         isGerencia={isGerencia}
+        isAdmin={isAdmin}
         active=""
       />
       <div className="flex flex-1 flex-col items-center justify-center gap-2 px-4">

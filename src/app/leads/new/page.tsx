@@ -27,6 +27,7 @@ export default async function NewLeadPage({
     .single<ProfileSummary>()
 
   const isGerencia = profile?.cargo === 'admin' || profile?.cargo === 'gerente'
+  const isAdmin = profile?.cargo === 'admin'
 
   let unidades: { id: string; nome: string }[] = []
   if (isGerencia) {
@@ -40,6 +41,7 @@ export default async function NewLeadPage({
         nome={profile?.nome ?? user.email ?? ''}
         cargo={profile?.cargo ?? ''}
         isGerencia={isGerencia}
+        isAdmin={isAdmin}
         active="leads"
       />
       <div className="flex flex-1 justify-center px-4 py-8">

@@ -77,6 +77,7 @@ export default async function EstoquePage({
         nome={profile?.nome ?? user.email ?? ''}
         cargo={profile?.cargo ?? ''}
         isGerencia={isGerencia}
+        isAdmin={isAdmin}
         active="estoque"
       />
       <div className="flex flex-1 flex-col gap-4 px-4 py-8 sm:px-10">

@@ -84,6 +84,7 @@ export default async function VeiculoDetailPage({
         nome={profile?.nome ?? user.email ?? ''}
         cargo={profile?.cargo ?? ''}
         isGerencia={isGerencia}
+        isAdmin={isAdmin}
         active="estoque"
       />
       <div className="flex flex-1 justify-center px-4 py-8">

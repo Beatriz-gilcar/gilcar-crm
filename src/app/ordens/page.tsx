@@ -43,6 +43,7 @@ export default async function OrdensPage({
     .single<ProfileSummary>()
 
   const isGerencia = profile?.cargo === 'admin' || profile?.cargo === 'gerente'
+  const isAdmin = profile?.cargo === 'admin'
 
   let vendedores: Vendedor[] = []
   if (isGerencia) {
@@ -75,6 +76,7 @@ export default async function OrdensPage({
         nome={profile?.nome ?? user.email ?? ''}
         cargo={profile?.cargo ?? ''}
         isGerencia={isGerencia}
+        isAdmin={isAdmin}
         active="ordens"
       />
       <div className="flex flex-1 flex-col gap-4 px-4 py-8 sm:px-10">

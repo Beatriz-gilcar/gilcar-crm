@@ -70,6 +70,7 @@ export default async function LeadDetailPage({
     .single<ProfileSummary>()
 
   const isGerencia = profile?.cargo === 'admin' || profile?.cargo === 'gerente'
+  const isAdmin = profile?.cargo === 'admin'
 
   const { data: lead } = await supabase
     .from('clientes')
@@ -97,6 +98,7 @@ export default async function LeadDetailPage({
         nome={profile?.nome ?? user.email ?? ''}
         cargo={profile?.cargo ?? ''}
         isGerencia={isGerencia}
+        isAdmin={isAdmin}
         active="leads"
       />
       <div className="flex flex-1 flex-col gap-4 px-4 py-8 sm:px-10">
