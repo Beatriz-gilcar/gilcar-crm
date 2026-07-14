@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { Topbar } from '@/components/Topbar'
 import { createAtendimento } from '../actions'
 import { createLembrete, toggleLembrete } from '@/app/lembretes/actions'
+import { origemPresencialLabel, origemDigitalLabel } from '@/lib/atendimentos'
 
 type LeadDetail = {
   id: string
@@ -16,7 +17,14 @@ type LeadDetail = {
   atendimentos: {
     id: string
     tipo: string
-    descricao: string | null
+    cliente_nome: string | null
+    celular: string | null
+    veiculo_interesse: string | null
+    cv: string | null
+    fechou_negocio: boolean | null
+    agendou_visita: boolean | null
+    origem: string | null
+    observacao: string | null
     data_atendimento: string
     profiles: { nome: string } | null
   }[]
@@ -38,11 +46,30 @@ const contatoLabel: Record<string, string> = {
   outro: 'Outro',
 }
 
-const atendimentoLabel: Record<string, string> = {
-  digital: 'Digital',
-  presencial: 'Presencial',
-  compra: 'Compra',
-  venda: 'Venda',
+function ToggleGroup({
+  name,
+  options,
+  defaultValue,
+}: {
+  name: string
+  options: { value: string; label: string }[]
+  defaultValue: string
+}) {
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {options.map((opt) => (
+        <label key={opt.value} className="toggle-btn">
+          <input
+            type="radio"
+            name={name}
+            value={opt.value}
+            defaultChecked={opt.value === defaultValue}
+          />
+          {opt.label}
+        </label>
+      ))}
+    </div>
+  )
 }
 
 export default async function LeadDetailPage({
@@ -75,7 +102,7 @@ export default async function LeadDetailPage({
       `id, nome, observacoes, created_at,
        unidades(nome), profiles(nome),
        contatos(id, tipo, valor, principal),
-       atendimentos(id, tipo, descricao, data_atendimento, profiles(nome)),
+       atendimentos(id, tipo, cliente_nome, celular, veiculo_interesse, cv, fechou_negocio, agendou_visita, origem, observacao, data_atendimento, profiles(nome)),
        lembretes(id, titulo, data_vencimento, concluido, categorias(nome, cor))`
     )
     .eq('id', id)
@@ -157,51 +184,165 @@ export default async function LeadDetailPage({
                 </p>
               ) : (
                 <ul className="flex flex-col gap-3">
-                  {lead.atendimentos.map((atendimento) => (
-                    <li
-                      key={atendimento.id}
-                      className="border-b border-[var(--border)] pb-3 last:border-b-0 last:pb-0"
-                    >
-                      <p className="flex flex-wrap items-center gap-2 text-[.8rem]">
-                        <span className="badge badge-enviado">
-                          {atendimentoLabel[atendimento.tipo] ?? atendimento.tipo}
-                        </span>
-                        <span className="text-[var(--text-muted)]">
-                          {new Date(atendimento.data_atendimento).toLocaleString('pt-BR')}
-                          {atendimento.profiles?.nome ? ` · ${atendimento.profiles.nome}` : ''}
-                        </span>
-                      </p>
-                      {atendimento.descricao && (
-                        <p className="mt-1 whitespace-pre-wrap normal-case text-[.82rem] text-white">
-                          {atendimento.descricao}
+                  {lead.atendimentos.map((atendimento) => {
+                    const origemLabel =
+                      atendimento.tipo === 'presencial'
+                        ? origemPresencialLabel[atendimento.origem ?? '']
+                        : origemDigitalLabel[atendimento.origem ?? '']
+
+                    return (
+                      <li
+                        key={atendimento.id}
+                        className="border-b border-[var(--border)] pb-3 last:border-b-0 last:pb-0"
+                      >
+                        <p className="flex flex-wrap items-center gap-2 text-[.8rem]">
+                          <span className="badge badge-enviado">
+                            {atendimento.tipo === 'presencial' ? 'Presencial' : 'Digital'}
+                          </span>
+                          {atendimento.tipo === 'presencial' && atendimento.cv && (
+                            <span className="badge badge-pendente">
+                              {atendimento.cv === 'compra' ? 'Compra' : 'Venda'}
+                            </span>
+                          )}
+                          {atendimento.tipo === 'presencial' && (
+                            <span
+                              className={`badge ${atendimento.fechou_negocio ? 'badge-aprovado' : 'badge-rejeitado'}`}
+                            >
+                              {atendimento.fechou_negocio ? 'Fechou negócio' : 'Não fechou'}
+                            </span>
+                          )}
+                          {atendimento.tipo === 'digital' && (
+                            <span
+                              className={`badge ${atendimento.agendou_visita ? 'badge-aprovado' : 'badge-rejeitado'}`}
+                            >
+                              {atendimento.agendou_visita ? 'Agendou visita' : 'Não agendou'}
+                            </span>
+                          )}
+                          <span className="text-[var(--text-muted)]">
+                            {new Date(atendimento.data_atendimento).toLocaleString('pt-BR')}
+                            {atendimento.profiles?.nome ? ` · ${atendimento.profiles.nome}` : ''}
+                          </span>
                         </p>
-                      )}
-                    </li>
-                  ))}
+                        <p className="mt-1 normal-case text-[.82rem] text-white">
+                          {atendimento.cliente_nome && <>{atendimento.cliente_nome} · </>}
+                          {atendimento.celular && <>{atendimento.celular} · </>}
+                          {atendimento.veiculo_interesse && <>{atendimento.veiculo_interesse} · </>}
+                          {origemLabel && (
+                            <span className="text-[var(--text-muted)]">{origemLabel}</span>
+                          )}
+                        </p>
+                        {atendimento.observacao && (
+                          <p className="mt-1 whitespace-pre-wrap normal-case text-[.82rem] text-[var(--text-muted)]">
+                            {atendimento.observacao}
+                          </p>
+                        )}
+                      </li>
+                    )
+                  })}
                 </ul>
               )}
 
-              <form action={createAtendimento} className="mt-4 flex flex-col gap-3">
+              {/* Presencial */}
+              <form
+                action={createAtendimento}
+                className="mt-4 flex flex-col gap-3 border-t border-[var(--border)] pt-4"
+              >
+                <p className="text-[.7rem] font-bold tracking-wide text-[var(--red)]">
+                  Atendimento presencial
+                </p>
                 <input type="hidden" name="cliente_id" value={lead.id} />
-                <div className="flex flex-wrap gap-3">
-                  <select name="tipo" required defaultValue="" className="max-w-[160px]">
-                    <option value="" disabled>
-                      Tipo...
-                    </option>
-                    <option value="digital">Digital</option>
-                    <option value="presencial">Presencial</option>
-                    <option value="compra">Compra</option>
-                    <option value="venda">Venda</option>
-                  </select>
+                <input type="hidden" name="tipo" value="presencial" />
+
+                <div className="grid2">
                   <input
-                    name="descricao"
+                    name="cliente_nome"
                     type="text"
-                    placeholder="Observações (opcional)"
-                    className="flex-1"
+                    placeholder="Nome do cliente"
+                    defaultValue={lead.nome}
+                  />
+                  <input name="celular" type="tel" placeholder="Celular" />
+                </div>
+                <input name="veiculo_interesse" type="text" placeholder="Veículo de interesse" />
+
+                <div className="flex flex-wrap items-center gap-4">
+                  <ToggleGroup
+                    name="cv"
+                    defaultValue="compra"
+                    options={[
+                      { value: 'compra', label: 'Compra' },
+                      { value: 'venda', label: 'Venda' },
+                    ]}
+                  />
+                  <ToggleGroup
+                    name="fechou_negocio"
+                    defaultValue="nao"
+                    options={[
+                      { value: 'sim', label: 'Fechou? Sim' },
+                      { value: 'nao', label: 'Fechou? Não' },
+                    ]}
                   />
                 </div>
+
+                <ToggleGroup
+                  name="origem"
+                  defaultValue="porta"
+                  options={Object.entries(origemPresencialLabel).map(([value, label]) => ({
+                    value,
+                    label,
+                  }))}
+                />
+
+                <textarea name="observacao" placeholder="Observação" rows={2} />
+
                 <button type="submit" className="btn btn-red btn-sm self-start">
-                  Registrar atendimento
+                  Registrar atendimento presencial
+                </button>
+              </form>
+
+              {/* Digital */}
+              <form
+                action={createAtendimento}
+                className="mt-4 flex flex-col gap-3 border-t border-[var(--border)] pt-4"
+              >
+                <p className="text-[.7rem] font-bold tracking-wide text-[var(--red)]">
+                  Atendimento digital
+                </p>
+                <input type="hidden" name="cliente_id" value={lead.id} />
+                <input type="hidden" name="tipo" value="digital" />
+
+                <div className="grid2">
+                  <input
+                    name="cliente_nome"
+                    type="text"
+                    placeholder="Nome do cliente"
+                    defaultValue={lead.nome}
+                  />
+                  <input name="celular" type="text" placeholder="Celular / canal" />
+                </div>
+                <input name="veiculo_interesse" type="text" placeholder="Veículo de interesse" />
+
+                <ToggleGroup
+                  name="agendou_visita"
+                  defaultValue="nao"
+                  options={[
+                    { value: 'sim', label: 'Agendou visita? Sim' },
+                    { value: 'nao', label: 'Agendou visita? Não' },
+                  ]}
+                />
+
+                <ToggleGroup
+                  name="origem"
+                  defaultValue="whatsapp"
+                  options={Object.entries(origemDigitalLabel).map(([value, label]) => ({
+                    value,
+                    label,
+                  }))}
+                />
+
+                <textarea name="observacao" placeholder="Observação" rows={2} />
+
+                <button type="submit" className="btn btn-red btn-sm self-start">
+                  Registrar atendimento digital
                 </button>
               </form>
             </div>

@@ -78,14 +78,37 @@ export async function createAtendimento(formData: FormData) {
 
   const clienteId = formData.get('cliente_id') as string
   const tipo = formData.get('tipo') as string
-  const descricao = (formData.get('descricao') as string)?.trim() || null
+  const clienteNome = (formData.get('cliente_nome') as string)?.trim() || null
+  const celular = (formData.get('celular') as string)?.trim() || null
+  const veiculoInteresse = (formData.get('veiculo_interesse') as string)?.trim() || null
+  const observacao = (formData.get('observacao') as string)?.trim() || null
+  const origem = (formData.get('origem') as string) || null
 
-  const { error } = await supabase.from('atendimentos').insert({
+  if (!clienteNome && !celular && !veiculoInteresse) {
+    redirect(
+      `/leads/${clienteId}?error=${encodeURIComponent('Preencha pelo menos um campo do atendimento antes de enviar')}`
+    )
+  }
+
+  const payload: Record<string, unknown> = {
     cliente_id: clienteId,
     consultor_id: user.id,
     tipo,
-    descricao,
-  })
+    cliente_nome: clienteNome,
+    celular,
+    veiculo_interesse: veiculoInteresse,
+    observacao,
+    origem,
+  }
+
+  if (tipo === 'presencial') {
+    payload.cv = (formData.get('cv') as string) || null
+    payload.fechou_negocio = formData.get('fechou_negocio') === 'sim'
+  } else {
+    payload.agendou_visita = formData.get('agendou_visita') === 'sim'
+  }
+
+  const { error } = await supabase.from('atendimentos').insert(payload)
 
   if (error) {
     redirect(

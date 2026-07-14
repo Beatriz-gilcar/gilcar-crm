@@ -130,10 +130,24 @@ input[type='date']::-webkit-calendar-picker-indicator {
   gap: 4px;
 }
 
-.toggle-btn.ativo {
+.toggle-btn.ativo,
+.toggle-btn:has(input:checked) {
   background: var(--red);
   color: #fff;
   border-color: var(--red);
+}
+
+.toggle-btn {
+  position: relative;
+}
+
+.toggle-btn input[type='radio'] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+  margin: 0;
 }
 
 .badge {

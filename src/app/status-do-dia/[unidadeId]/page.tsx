@@ -3,6 +3,7 @@ import { notFound, redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { Topbar } from '@/components/Topbar'
 import { ConfirmButton } from '@/components/ConfirmButton'
+import { origemPresencialLabel, origemDigitalLabel } from '@/lib/atendimentos'
 import { aprovarConsultorDia, aprovarDiaUnidade } from '../actions'
 
 type ConsultorStatus = {
@@ -10,6 +11,23 @@ type ConsultorStatus = {
   consultor_nome: string
   enviados: number
   aprovado: boolean
+}
+
+type AtendimentoDetalhe = {
+  id: string
+  consultor_id: string
+  cliente_id: string
+  tipo: string
+  cliente_nome: string | null
+  celular: string | null
+  veiculo_interesse: string | null
+  cv: string | null
+  fechou_negocio: boolean | null
+  agendou_visita: boolean | null
+  origem: string | null
+  observacao: string | null
+  data_atendimento: string
+  clientes: { nome: string } | null
 }
 
 type ProfileSummary = { nome: string; cargo: string }
@@ -76,6 +94,31 @@ export default async function StatusDoDiaDetalhePage({
   })
   const rows = (consultores ?? []) as ConsultorStatus[]
 
+  const consultorIds = rows.map((r) => r.consultor_id)
+  const inicio = `${data}T00:00:00Z`
+  const fim = new Date(new Date(inicio).getTime() + 24 * 60 * 60 * 1000).toISOString()
+
+  const { data: atendimentos } =
+    consultorIds.length > 0
+      ? await supabase
+          .from('atendimentos')
+          .select(
+            'id, consultor_id, cliente_id, tipo, cliente_nome, celular, veiculo_interesse, cv, fechou_negocio, agendou_visita, origem, observacao, data_atendimento, clientes(nome)'
+          )
+          .in('consultor_id', consultorIds)
+          .gte('data_atendimento', inicio)
+          .lt('data_atendimento', fim)
+          .order('data_atendimento', { ascending: false })
+          .overrideTypes<AtendimentoDetalhe[]>()
+      : { data: [] as AtendimentoDetalhe[] }
+
+  const atendimentosPorConsultor = new Map<string, AtendimentoDetalhe[]>()
+  for (const atendimento of atendimentos ?? []) {
+    const lista = atendimentosPorConsultor.get(atendimento.consultor_id) ?? []
+    lista.push(atendimento)
+    atendimentosPorConsultor.set(atendimento.consultor_id, lista)
+  }
+
   return (
     <>
       <Topbar
@@ -107,32 +150,101 @@ export default async function StatusDoDiaDetalhePage({
                 <div className="empty-state">Nenhum consultor nesta unidade.</div>
               ) : (
                 <ul className="flex flex-col">
-                  {rows.map((row) => (
-                    <li
-                      key={row.consultor_id}
-                      className="flex items-center justify-between border-t border-[var(--border)] px-4 py-3 first:border-t-0"
-                    >
-                      <div>
-                        <p className="font-semibold text-white">{row.consultor_nome}</p>
-                        <p className="text-[.75rem] text-[var(--text-muted)]">
-                          {row.enviados} atendimento{row.enviados === 1 ? '' : 's'} enviado
-                          {row.enviados === 1 ? '' : 's'}
-                        </p>
-                      </div>
-                      {row.aprovado ? (
-                        <span className="badge badge-aprovado">Aprovado</span>
-                      ) : (
-                        <form action={aprovarConsultorDia}>
-                          <input type="hidden" name="consultor_id" value={row.consultor_id} />
-                          <input type="hidden" name="data" value={data} />
-                          <input type="hidden" name="unidade_id" value={unidadeId} />
-                          <button type="submit" className="btn btn-outline btn-sm">
-                            Aprovar
-                          </button>
-                        </form>
-                      )}
-                    </li>
-                  ))}
+                  {rows.map((row) => {
+                    const atendimentosDoConsultor = atendimentosPorConsultor.get(row.consultor_id) ?? []
+
+                    return (
+                      <li
+                        key={row.consultor_id}
+                        className="border-t border-[var(--border)] px-4 py-3 first:border-t-0"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-semibold text-white">{row.consultor_nome}</p>
+                            <p className="text-[.75rem] text-[var(--text-muted)]">
+                              {row.enviados} atendimento{row.enviados === 1 ? '' : 's'} enviado
+                              {row.enviados === 1 ? '' : 's'}
+                            </p>
+                          </div>
+                          {row.aprovado ? (
+                            <span className="badge badge-aprovado">Aprovado</span>
+                          ) : (
+                            <form action={aprovarConsultorDia}>
+                              <input type="hidden" name="consultor_id" value={row.consultor_id} />
+                              <input type="hidden" name="data" value={data} />
+                              <input type="hidden" name="unidade_id" value={unidadeId} />
+                              <button type="submit" className="btn btn-outline btn-sm">
+                                Aprovar
+                              </button>
+                            </form>
+                          )}
+                        </div>
+
+                        {atendimentosDoConsultor.length > 0 && (
+                          <ul className="mt-3 flex flex-col gap-2 border-t border-[var(--border)] pt-3">
+                            {atendimentosDoConsultor.map((atendimento) => {
+                              const origemLabel =
+                                atendimento.tipo === 'presencial'
+                                  ? origemPresencialLabel[atendimento.origem ?? '']
+                                  : origemDigitalLabel[atendimento.origem ?? '']
+
+                              return (
+                                <li key={atendimento.id} className="text-[.78rem]">
+                                  <p className="flex flex-wrap items-center gap-2">
+                                    <span className="badge badge-enviado">
+                                      {atendimento.tipo === 'presencial' ? 'Presencial' : 'Digital'}
+                                    </span>
+                                    {atendimento.tipo === 'presencial' && atendimento.cv && (
+                                      <span className="badge badge-pendente">
+                                        {atendimento.cv === 'compra' ? 'Compra' : 'Venda'}
+                                      </span>
+                                    )}
+                                    {atendimento.tipo === 'presencial' && (
+                                      <span
+                                        className={`badge ${atendimento.fechou_negocio ? 'badge-aprovado' : 'badge-rejeitado'}`}
+                                      >
+                                        {atendimento.fechou_negocio ? 'Fechou' : 'Não fechou'}
+                                      </span>
+                                    )}
+                                    {atendimento.tipo === 'digital' && (
+                                      <span
+                                        className={`badge ${atendimento.agendou_visita ? 'badge-aprovado' : 'badge-rejeitado'}`}
+                                      >
+                                        {atendimento.agendou_visita ? 'Agendou' : 'Não agendou'}
+                                      </span>
+                                    )}
+                                    <span className="text-[var(--text-muted)]">
+                                      {new Date(atendimento.data_atendimento).toLocaleTimeString(
+                                        'pt-BR',
+                                        { hour: '2-digit', minute: '2-digit' }
+                                      )}
+                                    </span>
+                                  </p>
+                                  <p className="mt-1 normal-case text-white">
+                                    <Link href={`/leads/${atendimento.cliente_id}`} className="hover:underline">
+                                      {atendimento.clientes?.nome ?? atendimento.cliente_nome ?? '—'}
+                                    </Link>
+                                    {atendimento.celular && <> · {atendimento.celular}</>}
+                                    {atendimento.veiculo_interesse && (
+                                      <> · {atendimento.veiculo_interesse}</>
+                                    )}
+                                    {origemLabel && (
+                                      <span className="text-[var(--text-muted)]"> · {origemLabel}</span>
+                                    )}
+                                  </p>
+                                  {atendimento.observacao && (
+                                    <p className="mt-1 whitespace-pre-wrap normal-case text-[var(--text-muted)]">
+                                      {atendimento.observacao}
+                                    </p>
+                                  )}
+                                </li>
+                              )
+                            })}
+                          </ul>
+                        )}
+                      </li>
+                    )
+                  })}
                 </ul>
               )}
             </div>
