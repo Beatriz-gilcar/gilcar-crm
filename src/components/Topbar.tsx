@@ -9,6 +9,7 @@ type NavKey =
   | 'categorias'
   | 'estoque'
   | 'ordens'
+  | 'gerencia'
   | 'admin'
 
 export function Topbar({
@@ -34,6 +35,7 @@ export function Topbar({
 
   if (isGerencia) {
     navItems.push({ key: 'status-do-dia', href: '/status-do-dia', label: 'Status do Dia' })
+    navItems.push({ key: 'gerencia', href: '/gerencia', label: 'Gerência' })
     navItems.push({ key: 'categorias', href: '/categorias', label: 'Categorias' })
   }
 
