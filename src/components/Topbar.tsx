@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { logout } from '@/app/actions'
 
-type NavKey = 'leads' | 'lembretes' | 'dashboard' | 'status-do-dia' | 'categorias' | 'estoque'
+type NavKey = 'leads' | 'lembretes' | 'dashboard' | 'status-do-dia' | 'categorias' | 'estoque' | 'ordens'
 
 export function Topbar({
   nome,
@@ -18,6 +18,7 @@ export function Topbar({
     { key: 'leads', href: '/leads', label: 'Leads' },
     { key: 'lembretes', href: '/lembretes', label: 'Lembretes' },
     { key: 'estoque', href: '/estoque', label: 'Estoque' },
+    { key: 'ordens', href: '/ordens', label: 'Ordens' },
     { key: 'dashboard', href: '/dashboard', label: 'Dashboard' },
   ]
 

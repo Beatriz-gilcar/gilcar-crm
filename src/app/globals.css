@@ -308,6 +308,30 @@ tr:hover td {
   min-width: 130px;
 }
 
+.os-form:has(input[name='tipo'][value='compra']:checked) .only-venda {
+  display: none;
+}
+
+.os-form:has(input[name='tipo'][value='venda']:checked) .only-compra-label {
+  display: none;
+}
+
+.os-form:has(input[name='tipo'][value='compra']:checked) .only-venda-label {
+  display: none;
+}
+
+.os-form:has(input[name='tem_troca'][value='nao']:checked) .troca-detalhe {
+  display: none;
+}
+
+.os-form:has(input[name='veiculo_fonte'][value='avulso']:checked) .veiculo-estoque-block {
+  display: none;
+}
+
+.os-form:has(input[name='veiculo_fonte'][value='estoque']:checked) .veiculo-avulso-block {
+  display: none;
+}
+
 .logo-gilcar {
   font-family: var(--font-playfair), Georgia, serif;
   font-style: italic;
