@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
+import { Topbar } from '@/components/Topbar'
 import { createAtendimento } from '../actions'
 import { createLembrete, toggleLembrete } from '@/app/lembretes/actions'
 
@@ -28,6 +29,8 @@ type LeadDetail = {
   }[]
 }
 
+type ProfileSummary = { nome: string; cargo: string }
+
 const contatoLabel: Record<string, string> = {
   celular: 'Celular',
   whatsapp: 'WhatsApp',
@@ -50,6 +53,22 @@ export default async function LeadDetailPage({
   const { id } = await params
   const supabase = await createClient()
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return null
+  }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('nome, cargo')
+    .eq('id', user.id)
+    .single<ProfileSummary>()
+
+  const isGerencia = profile?.cargo === 'admin' || profile?.cargo === 'gerente'
+
   const { data: lead } = await supabase
     .from('clientes')
     .select(
@@ -71,204 +90,209 @@ export default async function LeadDetailPage({
   const { data: categorias } = await supabase.from('categorias').select('id, nome').order('nome')
 
   return (
-    <div className="flex flex-1 flex-col gap-6 bg-zinc-50 px-4 py-10 dark:bg-black sm:px-10">
-      <div className="mx-auto w-full max-w-2xl">
-        <Link href="/leads" className="text-sm text-zinc-500 hover:underline dark:text-zinc-400">
-          ← Leads
-        </Link>
+    <>
+      <Topbar
+        nome={profile?.nome ?? user.email ?? ''}
+        cargo={profile?.cargo ?? ''}
+        isGerencia={isGerencia}
+        active="leads"
+      />
+      <div className="flex flex-1 flex-col gap-4 px-4 py-8 sm:px-10">
+        <div className="mx-auto flex w-full max-w-2xl flex-col gap-4">
+          <Link href="/leads" className="text-[.72rem] text-[var(--text-muted)] hover:text-white">
+            ← Leads
+          </Link>
 
-        <div className="mt-2 rounded-xl border border-black/10 bg-white p-8 dark:border-white/10 dark:bg-zinc-950">
-          <h1 className="text-xl font-semibold text-black dark:text-zinc-50">{lead.nome}</h1>
-          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
-            {lead.unidades?.nome ?? 'sem unidade'}
-            {lead.profiles?.nome ? ` · ${lead.profiles.nome}` : ''} ·{' '}
-            {new Date(lead.created_at).toLocaleDateString('pt-BR')}
-          </p>
-
-          {lead.observacoes && (
-            <p className="mt-4 whitespace-pre-wrap text-sm text-zinc-700 dark:text-zinc-300">
-              {lead.observacoes}
-            </p>
-          )}
-
-          <h2 className="mt-6 text-sm font-semibold text-black dark:text-zinc-50">Contatos</h2>
-          {lead.contatos.length === 0 ? (
-            <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
-              Nenhum contato cadastrado.
-            </p>
-          ) : (
-            <ul className="mt-2 flex flex-col gap-1">
-              {lead.contatos.map((contato) => (
-                <li key={contato.id} className="text-sm text-zinc-700 dark:text-zinc-300">
-                  {contatoLabel[contato.tipo] ?? contato.tipo}: {contato.valor}
-                  {contato.principal && (
-                    <span className="ml-2 text-xs text-zinc-400 dark:text-zinc-500">
-                      (principal)
-                    </span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        {/* Atendimentos */}
-        <div className="mt-6 rounded-xl border border-black/10 bg-white p-8 dark:border-white/10 dark:bg-zinc-950">
-          <h2 className="text-sm font-semibold text-black dark:text-zinc-50">Atendimentos</h2>
-
-          {lead.atendimentos.length === 0 ? (
-            <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
-              Nenhum atendimento registrado.
-            </p>
-          ) : (
-            <ul className="mt-2 flex flex-col gap-3">
-              {lead.atendimentos.map((atendimento) => (
-                <li key={atendimento.id} className="text-sm">
-                  <p className="text-black dark:text-zinc-50">
-                    <span className="font-medium">
-                      {atendimentoLabel[atendimento.tipo] ?? atendimento.tipo}
-                    </span>{' '}
-                    <span className="text-zinc-500 dark:text-zinc-400">
-                      · {new Date(atendimento.data_atendimento).toLocaleString('pt-BR')}
-                      {atendimento.profiles?.nome ? ` · ${atendimento.profiles.nome}` : ''}
-                    </span>
-                  </p>
-                  {atendimento.descricao && (
-                    <p className="mt-1 whitespace-pre-wrap text-zinc-700 dark:text-zinc-300">
-                      {atendimento.descricao}
-                    </p>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
-
-          <form action={createAtendimento} className="mt-4 flex flex-col gap-3">
-            <input type="hidden" name="cliente_id" value={lead.id} />
-            <div className="flex gap-3">
-              <select
-                name="tipo"
-                required
-                defaultValue=""
-                className="rounded-md border border-black/10 bg-transparent px-3 py-2 text-sm text-black dark:border-white/20 dark:text-zinc-50"
-              >
-                <option value="" disabled>
-                  Tipo...
-                </option>
-                <option value="digital">Digital</option>
-                <option value="presencial">Presencial</option>
-                <option value="compra">Compra</option>
-                <option value="venda">Venda</option>
-              </select>
-              <input
-                name="descricao"
-                type="text"
-                placeholder="Observações (opcional)"
-                className="flex-1 rounded-md border border-black/10 bg-transparent px-3 py-2 text-sm text-black dark:border-white/20 dark:text-zinc-50"
-              />
+          <div>
+            <div className="sec-header">
+              <div className="sec-title">{lead.nome}</div>
             </div>
-            <button
-              type="submit"
-              className="self-start rounded-full bg-foreground px-4 py-1.5 text-sm font-medium text-background hover:bg-[#383838] dark:hover:bg-[#ccc]"
-            >
-              Registrar atendimento
-            </button>
-          </form>
-        </div>
+            <div className="sec-body sec-pad">
+              <p className="text-[.75rem] text-[var(--text-muted)]">
+                {lead.unidades?.nome ?? 'sem unidade'}
+                {lead.profiles?.nome ? ` · ${lead.profiles.nome}` : ''} ·{' '}
+                {new Date(lead.created_at).toLocaleDateString('pt-BR')}
+              </p>
 
-        {/* Lembretes */}
-        <div className="mt-6 rounded-xl border border-black/10 bg-white p-8 dark:border-white/10 dark:bg-zinc-950">
-          <h2 className="text-sm font-semibold text-black dark:text-zinc-50">Lembretes</h2>
+              {lead.observacoes && (
+                <p className="mt-3 whitespace-pre-wrap normal-case text-[.85rem] text-white">
+                  {lead.observacoes}
+                </p>
+              )}
 
-          {lead.lembretes.length === 0 ? (
-            <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
-              Nenhum lembrete para este lead.
-            </p>
-          ) : (
-            <ul className="mt-2 flex flex-col gap-2">
-              {lead.lembretes.map((lembrete) => (
-                <li key={lembrete.id} className="flex items-center gap-3 text-sm">
-                  <form action={toggleLembrete}>
-                    <input type="hidden" name="id" value={lembrete.id} />
-                    <input type="hidden" name="concluido" value={String(lembrete.concluido)} />
-                    <input type="hidden" name="cliente_id" value={lead.id} />
-                    <button
-                      type="submit"
-                      aria-label={lembrete.concluido ? 'Reabrir lembrete' : 'Concluir lembrete'}
-                      className={`flex h-5 w-5 items-center justify-center rounded-full border text-[10px] ${
-                        lembrete.concluido
-                          ? 'border-emerald-500 bg-emerald-500 text-white'
-                          : 'border-black/20 text-transparent hover:border-black/40 dark:border-white/30'
-                      }`}
+              <div className="mt-4 border-t border-[var(--border)] pt-3 text-[.7rem] font-bold tracking-wide text-[var(--red)]">
+                Contatos
+              </div>
+              {lead.contatos.length === 0 ? (
+                <p className="mt-2 text-[.8rem] text-[var(--text-muted)]">
+                  Nenhum contato cadastrado.
+                </p>
+              ) : (
+                <ul className="mt-2 flex flex-col gap-1">
+                  {lead.contatos.map((contato) => (
+                    <li key={contato.id} className="text-[.82rem] text-white">
+                      {contatoLabel[contato.tipo] ?? contato.tipo}:{' '}
+                      <span className="normal-case">{contato.valor}</span>
+                      {contato.principal && (
+                        <span className="ml-2 text-[.68rem] text-[var(--text-muted)]">
+                          (principal)
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
+
+          {/* Atendimentos */}
+          <div>
+            <div className="sec-header">
+              <div className="sec-title">Atendimentos</div>
+            </div>
+            <div className="sec-body sec-pad">
+              {lead.atendimentos.length === 0 ? (
+                <p className="text-[.8rem] text-[var(--text-muted)]">
+                  Nenhum atendimento registrado.
+                </p>
+              ) : (
+                <ul className="flex flex-col gap-3">
+                  {lead.atendimentos.map((atendimento) => (
+                    <li
+                      key={atendimento.id}
+                      className="border-b border-[var(--border)] pb-3 last:border-b-0 last:pb-0"
                     >
-                      ✓
-                    </button>
-                  </form>
-                  <span
-                    className={
-                      lembrete.concluido
-                        ? 'text-zinc-400 line-through dark:text-zinc-500'
-                        : 'text-black dark:text-zinc-50'
-                    }
-                  >
-                    {lembrete.titulo}
-                  </span>
-                  {lembrete.categorias && (
-                    <span className="inline-flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400">
-                      <span
-                        className="h-2 w-2 rounded-full"
-                        style={{ backgroundColor: lembrete.categorias.cor ?? '#71717a' }}
-                      />
-                      {lembrete.categorias.nome}
-                    </span>
-                  )}
-                  {lembrete.data_vencimento && (
-                    <span className="text-xs text-zinc-400 dark:text-zinc-500">
-                      vence {new Date(lembrete.data_vencimento).toLocaleDateString('pt-BR')}
-                    </span>
-                  )}
-                </li>
-              ))}
-            </ul>
-          )}
+                      <p className="flex flex-wrap items-center gap-2 text-[.8rem]">
+                        <span className="badge badge-enviado">
+                          {atendimentoLabel[atendimento.tipo] ?? atendimento.tipo}
+                        </span>
+                        <span className="text-[var(--text-muted)]">
+                          {new Date(atendimento.data_atendimento).toLocaleString('pt-BR')}
+                          {atendimento.profiles?.nome ? ` · ${atendimento.profiles.nome}` : ''}
+                        </span>
+                      </p>
+                      {atendimento.descricao && (
+                        <p className="mt-1 whitespace-pre-wrap normal-case text-[.82rem] text-white">
+                          {atendimento.descricao}
+                        </p>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
 
-          <form action={createLembrete} className="mt-4 flex flex-col gap-3">
-            <input type="hidden" name="cliente_id" value={lead.id} />
-            <div className="flex gap-3">
-              <input
-                name="titulo"
-                type="text"
-                required
-                placeholder="Título do lembrete"
-                className="flex-1 rounded-md border border-black/10 bg-transparent px-3 py-2 text-sm text-black dark:border-white/20 dark:text-zinc-50"
-              />
-              <select
-                name="categoria_id"
-                defaultValue=""
-                className="rounded-md border border-black/10 bg-transparent px-3 py-2 text-sm text-black dark:border-white/20 dark:text-zinc-50"
-              >
-                <option value="">Sem categoria</option>
-                {categorias?.map((categoria) => (
-                  <option key={categoria.id} value={categoria.id}>
-                    {categoria.nome}
-                  </option>
-                ))}
-              </select>
-              <input
-                name="data_vencimento"
-                type="date"
-                className="rounded-md border border-black/10 bg-transparent px-3 py-2 text-sm text-black dark:border-white/20 dark:text-zinc-50"
-              />
+              <form action={createAtendimento} className="mt-4 flex flex-col gap-3">
+                <input type="hidden" name="cliente_id" value={lead.id} />
+                <div className="flex flex-wrap gap-3">
+                  <select name="tipo" required defaultValue="" className="max-w-[160px]">
+                    <option value="" disabled>
+                      Tipo...
+                    </option>
+                    <option value="digital">Digital</option>
+                    <option value="presencial">Presencial</option>
+                    <option value="compra">Compra</option>
+                    <option value="venda">Venda</option>
+                  </select>
+                  <input
+                    name="descricao"
+                    type="text"
+                    placeholder="Observações (opcional)"
+                    className="flex-1"
+                  />
+                </div>
+                <button type="submit" className="btn btn-red btn-sm self-start">
+                  Registrar atendimento
+                </button>
+              </form>
             </div>
-            <button
-              type="submit"
-              className="self-start rounded-full bg-foreground px-4 py-1.5 text-sm font-medium text-background hover:bg-[#383838] dark:hover:bg-[#ccc]"
-            >
-              Adicionar lembrete
-            </button>
-          </form>
+          </div>
+
+          {/* Lembretes */}
+          <div>
+            <div className="sec-header">
+              <div className="sec-title">Lembretes</div>
+            </div>
+            <div className="sec-body sec-pad">
+              {lead.lembretes.length === 0 ? (
+                <p className="text-[.8rem] text-[var(--text-muted)]">
+                  Nenhum lembrete para este lead.
+                </p>
+              ) : (
+                <ul className="flex flex-col gap-2">
+                  {lead.lembretes.map((lembrete) => (
+                    <li key={lembrete.id} className="flex flex-wrap items-center gap-2 text-[.8rem]">
+                      <form action={toggleLembrete}>
+                        <input type="hidden" name="id" value={lembrete.id} />
+                        <input type="hidden" name="concluido" value={String(lembrete.concluido)} />
+                        <input type="hidden" name="cliente_id" value={lead.id} />
+                        <button
+                          type="submit"
+                          aria-label={lembrete.concluido ? 'Reabrir lembrete' : 'Concluir lembrete'}
+                          className={`flex h-5 w-5 items-center justify-center rounded-full border text-[10px] ${
+                            lembrete.concluido
+                              ? 'border-emerald-500 bg-emerald-500 text-white'
+                              : 'border-[var(--border)] text-transparent hover:border-white'
+                          }`}
+                        >
+                          ✓
+                        </button>
+                      </form>
+                      <span
+                        className={
+                          lembrete.concluido
+                            ? 'normal-case text-[var(--text-muted)] line-through'
+                            : 'normal-case text-white'
+                        }
+                      >
+                        {lembrete.titulo}
+                      </span>
+                      {lembrete.categorias && (
+                        <span className="inline-flex items-center gap-1 text-[.68rem] text-[var(--text-muted)]">
+                          <span
+                            className="h-2 w-2 rounded-full"
+                            style={{ backgroundColor: lembrete.categorias.cor ?? '#71717a' }}
+                          />
+                          {lembrete.categorias.nome}
+                        </span>
+                      )}
+                      {lembrete.data_vencimento && (
+                        <span className="text-[.68rem] text-[var(--text-muted)]">
+                          vence {new Date(lembrete.data_vencimento).toLocaleDateString('pt-BR')}
+                        </span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              <form action={createLembrete} className="mt-4 flex flex-col gap-3">
+                <input type="hidden" name="cliente_id" value={lead.id} />
+                <div className="flex flex-wrap gap-3">
+                  <input
+                    name="titulo"
+                    type="text"
+                    required
+                    placeholder="Título do lembrete"
+                    className="flex-1"
+                  />
+                  <select name="categoria_id" defaultValue="" className="max-w-[160px]">
+                    <option value="">Sem categoria</option>
+                    {categorias?.map((categoria) => (
+                      <option key={categoria.id} value={categoria.id}>
+                        {categoria.nome}
+                      </option>
+                    ))}
+                  </select>
+                  <input name="data_vencimento" type="date" className="max-w-[160px]" />
+                </div>
+                <button type="submit" className="btn btn-red btn-sm self-start">
+                  Adicionar lembrete
+                </button>
+              </form>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   )
 }

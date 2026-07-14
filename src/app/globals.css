@@ -1,26 +1,314 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: #0a0a0a;
+  --surface: #141414;
+  --border: #2a2a2a;
+  --red: #cc0000;
+  --red-hover: #aa0000;
+  --text: #ffffff;
+  --text-muted: #888888;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background: var(--bg);
+  --color-foreground: var(--text);
+  --font-display: var(--font-playfair);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  box-sizing: border-box;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Segoe UI', Arial, Helvetica, sans-serif;
+  text-transform: uppercase;
+}
+
+label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  display: block;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 700;
+}
+
+input,
+select,
+textarea {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 9px 12px;
+  border-radius: 5px;
+  font-size: 0.88rem;
+  width: 100%;
+  text-transform: none;
+}
+
+textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--red);
+}
+
+input[type='date']::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  cursor: pointer;
+}
+
+.form-group {
+  margin-bottom: 12px;
+}
+
+.grid2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.btn {
+  display: inline-block;
+  padding: 10px 20px;
+  border-radius: 5px;
+  border: none;
+  font-weight: 700;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: 0.2s;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.btn-red {
+  background: var(--red);
+  color: #fff;
+}
+
+.btn-red:hover {
+  background: var(--red-hover);
+}
+
+.btn-outline {
+  background: transparent;
+  border: 2px solid var(--border);
+  color: var(--text-muted);
+}
+
+.btn-outline:hover {
+  border-color: var(--red);
+  color: var(--text);
+}
+
+.btn-sm {
+  padding: 5px 12px;
+  font-size: 0.72rem;
+}
+
+.toggle-btn {
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  cursor: pointer;
+  background: var(--bg);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  transition: 0.2s;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.toggle-btn.ativo {
+  background: var(--red);
+  color: #fff;
+  border-color: var(--red);
+}
+
+.badge {
+  display: inline-block;
+  padding: 3px 9px;
+  border-radius: 20px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.badge-pendente {
+  background: #261800;
+  color: #c07800;
+}
+
+.badge-enviado {
+  background: #001228;
+  color: #3d8fd4;
+}
+
+.badge-aprovado {
+  background: #001600;
+  color: #2db82d;
+}
+
+.badge-rejeitado {
+  background: #1a0808;
+  color: var(--red);
+}
+
+.sec-header {
+  background: var(--red);
+  padding: 10px 16px;
+  border-radius: 6px 6px 0 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sec-title {
+  font-weight: 700;
+  font-size: 0.8rem;
+  letter-spacing: 1px;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sec-count {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.25);
+  padding: 2px 8px;
+  border-radius: 10px;
+  white-space: nowrap;
+}
+
+.sec-body {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 6px 6px;
+}
+
+.sec-pad {
+  padding: 14px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-top: 2px solid var(--red);
+  border-radius: 6px;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+
+th {
+  text-align: left;
+  padding: 9px 12px;
+  color: var(--text-muted);
+  font-weight: 700;
+  border-bottom: 2px solid var(--border);
+  white-space: nowrap;
+  font-size: 0.68rem;
+  letter-spacing: 0.8px;
+}
+
+td {
+  padding: 9px 12px;
+  border-bottom: 1px solid #111111;
+  vertical-align: middle;
+  font-size: 0.78rem;
+}
+
+tr:hover td {
+  background: #111111;
+}
+
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+}
+
+.kpi-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-top: 2px solid var(--red);
+  border-radius: 6px;
+  padding: 14px;
+  text-align: center;
+}
+
+.kpi-val {
+  font-size: 1.6rem;
+  font-weight: 900;
+  color: #fff;
+}
+
+.kpi-label {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+  letter-spacing: 0.8px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px;
+  color: #444444;
+  font-size: 0.82rem;
+  letter-spacing: 0.5px;
+}
+
+.filtros {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.filtros select,
+.filtros input {
+  width: auto;
+  flex: 1;
+  min-width: 130px;
+}
+
+.logo-gilcar {
+  font-family: var(--font-playfair), Georgia, serif;
+  font-style: italic;
+  font-weight: 700;
+  font-size: 1.6rem;
+  color: #fff;
+  letter-spacing: 0.5px;
+  text-transform: none;
+}
+
+.logo-sub {
+  font-size: 0.6rem;
+  color: #fff;
+  font-style: italic;
+  letter-spacing: 1.5px;
+  text-transform: lowercase;
+  line-height: 1.1;
 }

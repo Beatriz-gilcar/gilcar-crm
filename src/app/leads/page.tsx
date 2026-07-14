@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
+import { Topbar } from '@/components/Topbar'
 
 type Lead = {
   id: string
@@ -9,8 +10,26 @@ type Lead = {
   profiles: { nome: string } | null
 }
 
+type ProfileSummary = { nome: string; cargo: string }
+
 export default async function LeadsPage() {
   const supabase = await createClient()
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    return null
+  }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('nome, cargo')
+    .eq('id', user.id)
+    .single<ProfileSummary>()
+
+  const isGerencia = profile?.cargo === 'admin' || profile?.cargo === 'gerente'
 
   const { data: leads } = await supabase
     .from('clientes')
@@ -19,51 +38,49 @@ export default async function LeadsPage() {
     .overrideTypes<Lead[]>()
 
   return (
-    <div className="flex flex-1 flex-col gap-6 bg-zinc-50 px-4 py-10 dark:bg-black sm:px-10">
-      <div className="mx-auto flex w-full max-w-3xl items-center justify-between">
-        <div>
-          <Link href="/" className="text-sm text-zinc-500 hover:underline dark:text-zinc-400">
-            ← Início
-          </Link>
-          <h1 className="text-xl font-semibold text-black dark:text-zinc-50">Leads</h1>
+    <>
+      <Topbar
+        nome={profile?.nome ?? user.email ?? ''}
+        cargo={profile?.cargo ?? ''}
+        isGerencia={isGerencia}
+        active="leads"
+      />
+      <div className="flex flex-1 flex-col gap-4 px-4 py-8 sm:px-10">
+        <div className="mx-auto w-full max-w-3xl">
+          <div className="sec-header">
+            <div className="sec-title">Leads</div>
+            <Link href="/leads/new" className="btn btn-red btn-sm">
+              + Novo lead
+            </Link>
+          </div>
+          <div className="sec-body" style={{ padding: 0 }}>
+            {!leads || leads.length === 0 ? (
+              <div className="empty-state">Nenhum lead cadastrado ainda.</div>
+            ) : (
+              <div className="flex flex-col">
+                {leads.map((lead) => (
+                  <Link
+                    key={lead.id}
+                    href={`/leads/${lead.id}`}
+                    className="flex items-center justify-between gap-4 border-t border-[var(--border)] px-4 py-3 first:border-t-0 hover:bg-white/[.03]"
+                  >
+                    <div>
+                      <p className="font-semibold text-white">{lead.nome}</p>
+                      <p className="text-[.72rem] text-[var(--text-muted)]">
+                        {lead.unidades?.nome ?? 'sem unidade'}
+                        {lead.profiles?.nome ? ` · ${lead.profiles.nome}` : ''}
+                      </p>
+                    </div>
+                    <span className="text-[.72rem] text-[var(--text-muted)]">
+                      {new Date(lead.created_at).toLocaleDateString('pt-BR')}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
-        <Link
-          href="/leads/new"
-          className="rounded-full bg-foreground px-5 py-2 text-sm font-medium text-background hover:bg-[#383838] dark:hover:bg-[#ccc]"
-        >
-          Novo lead
-        </Link>
       </div>
-
-      <div className="mx-auto w-full max-w-3xl overflow-hidden rounded-xl border border-black/10 bg-white dark:border-white/10 dark:bg-zinc-950">
-        {!leads || leads.length === 0 ? (
-          <p className="p-8 text-center text-sm text-zinc-500 dark:text-zinc-400">
-            Nenhum lead cadastrado ainda.
-          </p>
-        ) : (
-          <ul className="divide-y divide-black/10 dark:divide-white/10">
-            {leads.map((lead) => (
-              <li key={lead.id}>
-                <Link
-                  href={`/leads/${lead.id}`}
-                  className="flex items-center justify-between gap-4 px-6 py-4 hover:bg-black/[.02] dark:hover:bg-white/[.03]"
-                >
-                  <div>
-                    <p className="font-medium text-black dark:text-zinc-50">{lead.nome}</p>
-                    <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                      {lead.unidades?.nome ?? 'sem unidade'}
-                      {lead.profiles?.nome ? ` · ${lead.profiles.nome}` : ''}
-                    </p>
-                  </div>
-                  <span className="text-sm text-zinc-400 dark:text-zinc-500">
-                    {new Date(lead.created_at).toLocaleDateString('pt-BR')}
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-    </div>
+    </>
   )
 }
