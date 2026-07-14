@@ -236,3 +236,41 @@ export async function reprovarOrdem(formData: FormData) {
   revalidatePath(`/ordens/${id}`)
   redirect(`/ordens/${id}`)
 }
+
+export async function assinarOrdem(formData: FormData) {
+  const supabase = await createClient()
+  const id = formData.get('id') as string
+  const assinatura = formData.get('assinatura_gerencia_data_url') as string
+
+  if (!assinatura || !assinatura.startsWith('data:image/png;base64,')) {
+    redirect(`/ordens/${id}?error=${encodeURIComponent('Assine no quadro antes de salvar')}`)
+  }
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) redirect('/login')
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('nome')
+    .eq('id', user.id)
+    .single<{ nome: string }>()
+
+  const { error } = await supabase
+    .from('ordens_servico')
+    .update({
+      assinatura_gerencia_data_url: assinatura,
+      assinatura_gerencia_nome: profile?.nome ?? user.email,
+      assinado_em: new Date().toISOString(),
+    })
+    .eq('id', id)
+
+  if (error) {
+    redirect(`/ordens/${id}?error=${encodeURIComponent('Não foi possível salvar a assinatura')}`)
+  }
+
+  revalidatePath(`/ordens/${id}`)
+  redirect(`/ordens/${id}`)
+}

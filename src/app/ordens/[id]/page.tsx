@@ -4,8 +4,9 @@ import { createClient } from '@/lib/supabase/server'
 import { Topbar } from '@/components/Topbar'
 import { ToggleGroup } from '@/components/ToggleGroup'
 import { ConfirmButton } from '@/components/ConfirmButton'
+import { SignaturePad } from '@/components/SignaturePad'
 import { statusLabel, statusBadgeClass, tipoLabel, formaPagamentoLabel, formatBRL } from '@/lib/ordens'
-import { updateOrdem, aprovarOrdem, reprovarOrdem } from '../actions'
+import { updateOrdem, aprovarOrdem, reprovarOrdem, assinarOrdem } from '../actions'
 
 type OrdemDetail = {
   id: string
@@ -42,6 +43,9 @@ type OrdemDetail = {
   motivo_reprovacao: string | null
   aprovado_em: string | null
   consultor_id: string
+  assinatura_gerencia_data_url: string | null
+  assinatura_gerencia_nome: string | null
+  assinado_em: string | null
   unidades: { nome: string } | null
   vendedor: { nome: string } | null
   aprovador: { nome: string } | null
@@ -93,6 +97,7 @@ export default async function OrdemDetailPage({
        valor_total, desconto, tem_troca, troca_marca, troca_modelo, troca_ano, troca_placa,
        troca_valor_avaliado, troca_divida, troca_valor_liquido, valor_financiado, financeira,
        falta_receber, data_venda, data_entrega, status, motivo_reprovacao, aprovado_em, consultor_id,
+       assinatura_gerencia_data_url, assinatura_gerencia_nome, assinado_em,
        unidades(nome), vendedor:profiles!ordens_servico_consultor_id_fkey(nome), aprovador:profiles!ordens_servico_aprovado_por_fkey(nome)`
     )
     .eq('id', id)
@@ -113,6 +118,10 @@ export default async function OrdemDetailPage({
 
   const canEdit = ordem.status === 'pendente' && (isGerencia || ordem.consultor_id === user.id)
   const canApprove = isGerencia && ordem.status === 'pendente'
+  const canSign =
+    ordem.status === 'aprovada' &&
+    !ordem.assinatura_gerencia_data_url &&
+    (isAdmin || (profile?.cargo === 'gerente' && ordem.unidade_id === profile?.unidade_id))
 
   let unidades: Unidade[] = []
   let veiculos: VeiculoOpcao[] = []
@@ -180,6 +189,56 @@ export default async function OrdemDetailPage({
             <p className="text-[.75rem] normal-case text-[var(--text-muted)]">
               Aprovada por {ordem.aprovador?.nome ?? '—'} em{' '}
               {ordem.aprovado_em ? new Date(ordem.aprovado_em).toLocaleString('pt-BR') : '—'}
+            </p>
+          )}
+
+          {ordem.status === 'aprovada' && ordem.assinatura_gerencia_data_url && (
+            <div>
+              <div className="sec-header">
+                <div className="sec-title">Assinatura da gerência</div>
+              </div>
+              <div className="sec-body sec-pad flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={ordem.assinatura_gerencia_data_url}
+                    alt="Assinatura"
+                    className="h-14 w-36 rounded-lg bg-white object-contain"
+                  />
+                  <div>
+                    <p className="normal-case text-white">{ordem.assinatura_gerencia_nome}</p>
+                    <p className="text-[.68rem] normal-case text-[var(--text-muted)]">
+                      {ordem.assinado_em ? new Date(ordem.assinado_em).toLocaleString('pt-BR') : ''}
+                    </p>
+                  </div>
+                </div>
+                <a href={`/ordens/${ordem.id}/pdf`} target="_blank" rel="noreferrer" className="btn btn-red btn-sm">
+                  Baixar PDF
+                </a>
+              </div>
+            </div>
+          )}
+
+          {canSign && (
+            <div>
+              <div className="sec-header">
+                <div className="sec-title">Assinatura da gerência</div>
+              </div>
+              <div className="sec-body sec-pad">
+                <form action={assinarOrdem} className="flex flex-col gap-3">
+                  <input type="hidden" name="id" value={ordem.id} />
+                  <SignaturePad name="assinatura_gerencia_data_url" />
+                  <button type="submit" className="btn btn-red btn-sm self-start">
+                    Salvar assinatura
+                  </button>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {ordem.status === 'aprovada' && !ordem.assinatura_gerencia_data_url && !canSign && (
+            <p className="text-[.72rem] normal-case text-[var(--text-muted)]">
+              Aguardando assinatura da gerência responsável pela unidade.
             </p>
           )}
 
