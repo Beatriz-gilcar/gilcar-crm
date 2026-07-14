@@ -399,6 +399,53 @@ tr:hover td {
   display: none;
 }
 
+.meta-track {
+  position: relative;
+  height: 16px;
+  background: var(--surface-hover);
+  border-radius: 999px;
+  overflow: visible;
+  margin: 18px 0 10px;
+}
+
+.meta-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+
+.meta-runner {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.meta-confetti {
+  position: relative;
+  height: 0;
+  overflow: visible;
+}
+
+.meta-confetti span {
+  position: absolute;
+  top: -6px;
+  font-size: 1rem;
+  animation: meta-confetti-fall 1.6s ease-in infinite;
+}
+
+@keyframes meta-confetti-fall {
+  from {
+    transform: translateY(-10px) rotate(0deg);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(46px) rotate(360deg);
+    opacity: 0;
+  }
+}
+
 .logo-gilcar {
   font-family: var(--font-playfair), Georgia, serif;
   font-style: italic;

@@ -9,6 +9,8 @@ type NavKey =
   | 'categorias'
   | 'estoque'
   | 'ordens'
+  | 'metas'
+  | 'premiacao'
   | 'gerencia'
   | 'admin'
 
@@ -30,6 +32,8 @@ export function Topbar({
     { key: 'lembretes', href: '/lembretes', label: 'Lembretes' },
     { key: 'estoque', href: '/estoque', label: 'Estoque' },
     { key: 'ordens', href: '/ordens', label: 'Ordens' },
+    { key: 'metas', href: '/metas', label: 'Metas' },
+    { key: 'premiacao', href: '/premiacao', label: 'Premiação' },
     { key: 'dashboard', href: '/dashboard', label: 'Dashboard' },
   ]
 
