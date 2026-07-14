@@ -128,8 +128,8 @@ export default async function DashboardPage() {
 function StatCard({ label, value }: { label: string; value: number }) {
   return (
     <div className="kpi-card">
-      <div className="kpi-val">{value}</div>
       <div className="kpi-label">{label}</div>
+      <div className="kpi-val">{value}</div>
     </div>
   )
 }

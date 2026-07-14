@@ -43,7 +43,7 @@ export function Topbar({
 
   return (
     <>
-      <div className="flex items-center justify-between border-b-2 border-[var(--red)] bg-[var(--surface)] px-5 py-2.5">
+      <div className="flex items-center justify-between border-b border-[var(--border)] bg-[var(--surface)] px-5 py-2.5">
         <Link href="/" className="flex items-center gap-3">
           <span className="logo-gilcar">Gilcar</span>
           <div className="ml-1 flex flex-col justify-center border-l border-[var(--border)] pl-2.5">
@@ -55,24 +55,24 @@ export function Topbar({
           {nome} · {cargo}
         </div>
       </div>
-      <div className="flex overflow-x-auto border-b border-[var(--border)] bg-[var(--surface)]">
+      <div className="flex items-center gap-1 overflow-x-auto border-b border-[var(--border)] bg-[var(--surface)] px-3 py-2">
         {navItems.map((item) => (
           <Link
             key={item.key}
             href={item.href}
-            className={`whitespace-nowrap border-b-[3px] px-4 py-3 text-[.75rem] font-bold tracking-wide transition-colors ${
+            className={`whitespace-nowrap rounded-full px-4 py-2 text-[.75rem] font-bold tracking-wide transition-colors ${
               active === item.key
-                ? 'border-[var(--red)] bg-[var(--bg)] text-white'
-                : 'border-transparent text-[var(--text-muted)] hover:text-white'
+                ? 'bg-[var(--coral)] text-white'
+                : 'text-[var(--text-muted)] hover:bg-white/5 hover:text-white'
             }`}
           >
             {item.label}
           </Link>
         ))}
-        <form action={logout} className="ml-auto flex items-center px-4">
+        <form action={logout} className="ml-auto flex items-center px-2">
           <button
             type="submit"
-            className="text-[.72rem] font-bold tracking-wide text-[var(--text-muted)] hover:text-white"
+            className="rounded-full px-4 py-2 text-[.72rem] font-bold tracking-wide text-[var(--text-muted)] hover:bg-white/5 hover:text-white"
           >
             Sair
           </button>

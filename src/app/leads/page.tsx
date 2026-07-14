@@ -38,6 +38,12 @@ export default async function LeadsPage() {
     .order('created_at', { ascending: false })
     .overrideTypes<Lead[]>()
 
+  const seteDiasAtras = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+  const { count: novosSemana } = await supabase
+    .from('clientes')
+    .select('*', { count: 'exact', head: true })
+    .gte('created_at', seteDiasAtras)
+
   return (
     <>
       <Topbar
@@ -47,15 +53,28 @@ export default async function LeadsPage() {
         isAdmin={isAdmin}
         active="leads"
       />
-      <div className="flex flex-1 flex-col gap-4 px-4 py-8 sm:px-10">
+      <div className="flex flex-1 flex-col gap-6 px-4 py-8 sm:px-10">
         <div className="mx-auto w-full max-w-3xl">
-          <div className="sec-header">
-            <div className="sec-title">Leads</div>
+          <div className="kpi-grid">
+            <div className="kpi-card">
+              <div className="kpi-label">Leads ativos</div>
+              <div className="kpi-val">{leads?.length ?? 0}</div>
+            </div>
+            <div className="kpi-card">
+              <div className="kpi-label">Novos esta semana</div>
+              <div className="kpi-val">{novosSemana ?? 0}</div>
+            </div>
+          </div>
+
+          <div className="mt-6 flex items-center justify-between">
+            <div className="sec-title" style={{ borderBottom: 'none', paddingBottom: 0 }}>
+              Leads
+            </div>
             <Link href="/leads/new" className="btn btn-red btn-sm">
               + Novo lead
             </Link>
           </div>
-          <div className="sec-body" style={{ padding: 0 }}>
+          <div className="sec-body mt-3" style={{ padding: 0 }}>
             {!leads || leads.length === 0 ? (
               <div className="empty-state">Nenhum lead cadastrado ainda.</div>
             ) : (

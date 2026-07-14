@@ -44,6 +44,12 @@ export default async function LembretesPage() {
     .order('data_vencimento', { ascending: true, nullsFirst: false })
     .overrideTypes<LembreteRow[]>()
 
+  const pendentes = lembretes?.filter((l) => !l.concluido).length ?? 0
+  const vencidos =
+    lembretes?.filter(
+      (l) => !l.concluido && l.data_vencimento && new Date(l.data_vencimento) < new Date()
+    ).length ?? 0
+
   return (
     <>
       <Topbar
@@ -53,15 +59,28 @@ export default async function LembretesPage() {
         isAdmin={isAdmin}
         active="lembretes"
       />
-      <div className="flex flex-1 flex-col gap-4 px-4 py-8 sm:px-10">
+      <div className="flex flex-1 flex-col gap-6 px-4 py-8 sm:px-10">
         <div className="mx-auto w-full max-w-2xl">
-          <div className="sec-header">
-            <div className="sec-title">Lembretes</div>
+          <div className="kpi-grid">
+            <div className="kpi-card">
+              <div className="kpi-label">Pendentes</div>
+              <div className="kpi-val">{pendentes}</div>
+            </div>
+            <div className="kpi-card">
+              <div className="kpi-label">Vencidos</div>
+              <div className="kpi-val">{vencidos}</div>
+            </div>
+          </div>
+
+          <div className="mt-6 flex items-center justify-between">
+            <div className="sec-title" style={{ borderBottom: 'none', paddingBottom: 0 }}>
+              Lembretes
+            </div>
             <Link href="/lembretes/new" className="btn btn-red btn-sm">
               + Novo lembrete
             </Link>
           </div>
-          <div className="sec-body" style={{ padding: 0 }}>
+          <div className="sec-body mt-3" style={{ padding: 0 }}>
             {!lembretes || lembretes.length === 0 ? (
               <div className="empty-state">Nenhum lembrete cadastrado.</div>
             ) : (

@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { Topbar } from '@/components/Topbar'
+import { ToggleGroup } from '@/components/ToggleGroup'
 import { cargoLabel, cargoBadgeClass } from '@/lib/membros'
 
 type Membro = {
@@ -60,6 +61,9 @@ export default async function AdminPage({
   const { data: usersData } = await adminClient.auth.admin.listUsers({ perPage: 200 })
   const emailById = new Map(usersData?.users.map((u) => [u.id, u.email ?? '—']) ?? [])
 
+  const porCargo = { consultor: 0, gerente: 0, admin: 0 } as Record<string, number>
+  for (const m of membros) porCargo[m.cargo] = (porCargo[m.cargo] ?? 0) + 1
+
   return (
     <>
       <Topbar
@@ -69,38 +73,56 @@ export default async function AdminPage({
         isAdmin
         active="admin"
       />
-      <div className="flex flex-1 flex-col gap-4 px-4 py-8 sm:px-10">
+      <div className="flex flex-1 flex-col gap-6 px-4 py-8 sm:px-10">
         <div className="mx-auto w-full max-w-4xl">
-          <div className="sec-header">
-            <div className="sec-title">Equipe</div>
+          <div className="kpi-grid">
+            <div className="kpi-card">
+              <div className="kpi-label">Total da equipe</div>
+              <div className="kpi-val">{membros.length}</div>
+            </div>
+            <div className="kpi-card">
+              <div className="kpi-label">Consultores</div>
+              <div className="kpi-val">{porCargo.consultor ?? 0}</div>
+            </div>
+            <div className="kpi-card">
+              <div className="kpi-label">Gerência</div>
+              <div className="kpi-val">{(porCargo.gerente ?? 0) + (porCargo.admin ?? 0)}</div>
+            </div>
+          </div>
+
+          <div className="mt-6 flex items-center justify-between">
+            <div className="sec-title" style={{ borderBottom: 'none', paddingBottom: 0 }}>
+              Equipe
+            </div>
             <Link href="/admin/new" className="btn btn-red btn-sm">
               + Novo membro
             </Link>
           </div>
-          <div className="sec-body sec-pad">
-            <form className="filtros" method="get">
-              <select name="unidade_id" defaultValue={unidade_id ?? ''}>
-                <option value="">Todas as unidades</option>
-                {unidades.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.nome}
-                  </option>
-                ))}
-              </select>
-              <select name="cargo" defaultValue={cargo ?? ''}>
-                <option value="">Todos os cargos</option>
-                {Object.entries(cargoLabel).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-              <button type="submit" className="btn btn-outline btn-sm">
+          <div className="card sec-pad mt-3">
+            <form className="flex flex-col gap-3" method="get">
+              <div className="chip-row">
+                <ToggleGroup
+                  name="unidade_id"
+                  defaultValue={unidade_id ?? ''}
+                  options={[{ value: '', label: 'Todas as unidades' }, ...unidades.map((u) => ({ value: u.id, label: u.nome }))]}
+                />
+              </div>
+              <div className="chip-row">
+                <ToggleGroup
+                  name="cargo"
+                  defaultValue={cargo ?? ''}
+                  options={[
+                    { value: '', label: 'Todos os cargos' },
+                    ...Object.entries(cargoLabel).map(([value, label]) => ({ value, label })),
+                  ]}
+                />
+              </div>
+              <button type="submit" className="btn btn-outline btn-sm self-start">
                 Filtrar
               </button>
             </form>
           </div>
-          <div className="sec-body" style={{ padding: 0 }}>
+          <div className="sec-body mt-4" style={{ padding: 0 }}>
             {membros.length === 0 ? (
               <div className="empty-state">Nenhum membro encontrado.</div>
             ) : (

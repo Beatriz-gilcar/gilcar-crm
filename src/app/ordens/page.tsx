@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { Topbar } from '@/components/Topbar'
+import { ToggleGroup } from '@/components/ToggleGroup'
 import { tipoLabel, statusLabel, statusBadgeClass, formatBRL } from '@/lib/ordens'
 
 type Ordem = {
@@ -70,6 +71,16 @@ export default async function OrdensPage({
   const { data: ordensData } = await query.overrideTypes<Ordem[]>()
   const ordens = ordensData ?? []
 
+  const [{ count: total }, { count: pendentes }, { data: pendentesValores }] = await Promise.all([
+    supabase.from('ordens_servico').select('*', { count: 'exact', head: true }),
+    supabase.from('ordens_servico').select('*', { count: 'exact', head: true }).eq('status', 'pendente'),
+    supabase.from('ordens_servico').select('falta_receber').eq('status', 'pendente'),
+  ])
+  const faltaReceberPendente = (pendentesValores ?? []).reduce(
+    (acc, o) => acc + (o.falta_receber ?? 0),
+    0
+  )
+
   return (
     <>
       <Topbar
@@ -79,43 +90,70 @@ export default async function OrdensPage({
         isAdmin={isAdmin}
         active="ordens"
       />
-      <div className="flex flex-1 flex-col gap-4 px-4 py-8 sm:px-10">
+      <div className="flex flex-1 flex-col gap-6 px-4 py-8 sm:px-10">
         <div className="mx-auto w-full max-w-5xl">
-          <div className="sec-header">
-            <div className="sec-title">Ordens Salvas</div>
+          <div className="kpi-grid">
+            <div className="kpi-card">
+              <div className="kpi-label">Total de ordens</div>
+              <div className="kpi-val">{total ?? 0}</div>
+            </div>
+            <div className="kpi-card">
+              <div className="kpi-label">Pendentes de aprovação</div>
+              <div className="kpi-val">{pendentes ?? 0}</div>
+            </div>
+            <div className="kpi-card">
+              <div className="kpi-label">Falta receber (pendentes)</div>
+              <div className="kpi-val">{formatBRL(faltaReceberPendente)}</div>
+            </div>
+          </div>
+
+          <div className="mt-6 flex items-center justify-between">
+            <div className="sec-title" style={{ borderBottom: 'none', paddingBottom: 0 }}>
+              Ordens Salvas
+            </div>
             <Link href="/ordens/new" className="btn btn-red btn-sm">
               + Nova Ordem
             </Link>
           </div>
-          <div className="sec-body sec-pad">
-            <form className="filtros" method="get">
-              <input name="busca" type="text" placeholder="Comprador, veículo ou placa" defaultValue={busca ?? ''} />
-              <input name="data_de" type="date" defaultValue={data_de ?? ''} title="De" />
-              <input name="data_ate" type="date" defaultValue={data_ate ?? ''} title="Até" />
-              <select name="status" defaultValue={status ?? ''}>
-                <option value="">Todos status</option>
-                {Object.entries(statusLabel).map(([value, label]) => (
-                  <option key={value} value={value}>
-                    {label}
-                  </option>
-                ))}
-              </select>
-              {isGerencia && (
-                <select name="vendedor_id" defaultValue={vendedor_id ?? ''}>
-                  <option value="">Todos vendedores</option>
-                  {vendedores.map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.nome}
-                    </option>
-                  ))}
-                </select>
-              )}
-              <button type="submit" className="btn btn-outline btn-sm">
-                Filtrar
-              </button>
+          <div className="card sec-pad mt-3">
+            <form className="flex flex-col gap-3" method="get">
+              <div className="filtros">
+                <div className="search-wrap">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="11" cy="11" r="7" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                  </svg>
+                  <input name="busca" type="text" placeholder="Comprador, veículo ou placa" defaultValue={busca ?? ''} />
+                </div>
+                <input name="data_de" type="date" defaultValue={data_de ?? ''} title="De" />
+                <input name="data_ate" type="date" defaultValue={data_ate ?? ''} title="Até" />
+                {isGerencia && (
+                  <select name="vendedor_id" defaultValue={vendedor_id ?? ''}>
+                    <option value="">Todos vendedores</option>
+                    {vendedores.map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.nome}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                <button type="submit" className="btn btn-outline btn-sm">
+                  Filtrar
+                </button>
+              </div>
+              <div className="chip-row">
+                <ToggleGroup
+                  name="status"
+                  defaultValue={status ?? ''}
+                  options={[
+                    { value: '', label: 'Todos status' },
+                    ...Object.entries(statusLabel).map(([value, label]) => ({ value, label })),
+                  ]}
+                />
+              </div>
             </form>
           </div>
-          <div className="sec-body" style={{ padding: 0 }}>
+          <div className="sec-body mt-4" style={{ padding: 0 }}>
             {ordens.length === 0 ? (
               <div className="empty-state">Nenhuma ordem de serviço encontrada.</div>
             ) : (
