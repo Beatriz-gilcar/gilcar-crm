@@ -5,6 +5,7 @@ import { Topbar } from '@/components/Topbar'
 import { createAtendimento } from '../actions'
 import { createLembrete, toggleLembrete } from '@/app/lembretes/actions'
 import { origemPresencialLabel, origemDigitalLabel } from '@/lib/atendimentos'
+import { ToggleGroup } from '@/components/ToggleGroup'
 
 type LeadDetail = {
   id: string
@@ -44,32 +45,6 @@ const contatoLabel: Record<string, string> = {
   whatsapp: 'WhatsApp',
   email: 'E-mail',
   outro: 'Outro',
-}
-
-function ToggleGroup({
-  name,
-  options,
-  defaultValue,
-}: {
-  name: string
-  options: { value: string; label: string }[]
-  defaultValue: string
-}) {
-  return (
-    <div className="flex flex-wrap gap-1.5">
-      {options.map((opt) => (
-        <label key={opt.value} className="toggle-btn">
-          <input
-            type="radio"
-            name={name}
-            value={opt.value}
-            defaultChecked={opt.value === defaultValue}
-          />
-          {opt.label}
-        </label>
-      ))}
-    </div>
-  )
 }
 
 export default async function LeadDetailPage({
