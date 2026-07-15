@@ -6,7 +6,7 @@ import { createOrdem } from '../actions'
 
 type ProfileSummary = { nome: string; cargo: string; unidade_id: string | null }
 type Unidade = { id: string; nome: string }
-type VeiculoOpcao = { id: string; marca: string; modelo: string; placa: string; unidades: { nome: string } | null }
+type VeiculoOpcao = { id: string; marca: string; modelo: string; placa: string | null; unidades: { nome: string } | null }
 
 function hojeISO() {
   return new Date().toISOString().slice(0, 10)
@@ -180,7 +180,7 @@ export default async function NewOrdemPage({
                   </option>
                   {veiculos.map((v) => (
                     <option key={v.id} value={v.id}>
-                      {v.marca} {v.modelo} · {v.placa}
+                      {v.marca} {v.modelo} · {v.placa ?? 'sem placa'}
                       {v.unidades?.nome ? ` · ${v.unidades.nome}` : ''}
                     </option>
                   ))}

@@ -29,7 +29,7 @@ async function resolveVeiculo(supabase: SupabaseServerClient, formData: FormData
       .from('veiculos')
       .select('id, marca, modelo, ano, placa, cor')
       .eq('id', veiculoId)
-      .single<{ id: string; marca: string; modelo: string; ano: string | null; placa: string; cor: string | null }>()
+      .single<{ id: string; marca: string; modelo: string; ano: string | null; placa: string | null; cor: string | null }>()
 
     if (!data) return null
 

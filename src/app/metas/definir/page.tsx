@@ -2,7 +2,6 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { Topbar } from '@/components/Topbar'
 import { ToggleGroup } from '@/components/ToggleGroup'
-import { formatBRL } from '@/lib/ordens'
 import { mesAtualISO } from '@/lib/metas'
 import { definirMeta } from '../actions'
 
@@ -118,8 +117,8 @@ export default async function DefinirMetasPage({
                 <input name="periodo" type="month" defaultValue={mesAtualISO()} required />
               </div>
               <div className="form-group" style={{ marginBottom: 0 }}>
-                <label>Valor da meta</label>
-                <input name="valor_meta" type="number" step="0.01" min="0" required />
+                <label>Meta (quantidade de vendas)</label>
+                <input name="valor_meta" type="number" step="1" min="0" required />
               </div>
             </div>
 
@@ -175,7 +174,7 @@ export default async function DefinirMetasPage({
                         </p>
                         <p className="text-[.7rem] normal-case text-[var(--text-muted)]">{m.periodo}</p>
                       </div>
-                      <p className="font-bold text-white">{formatBRL(m.valor_meta)}</p>
+                      <p className="font-bold text-white">{m.valor_meta} vendas</p>
                     </div>
                   ))}
                 </div>

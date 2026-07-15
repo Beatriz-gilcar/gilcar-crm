@@ -83,14 +83,12 @@ export default async function MetasPage({
   const { data: unidadesData } = await supabase.from('unidades').select('id, nome').order('nome')
   const unidades = (unidadesData ?? []) as Unidade[]
 
-  const realizadoTotal = vendas.reduce((acc, v) => acc + v.valor, 0)
+  const realizadoTotal = vendas.length
   const realizadoPorUnidade = new Map<string, number>()
   for (const v of vendas) {
-    realizadoPorUnidade.set(v.unidade_id, (realizadoPorUnidade.get(v.unidade_id) ?? 0) + v.valor)
+    realizadoPorUnidade.set(v.unidade_id, (realizadoPorUnidade.get(v.unidade_id) ?? 0) + 1)
   }
-  const realizadoConsultor = vendas
-    .filter((v) => v.consultor_id === user.id)
-    .reduce((acc, v) => acc + v.valor, 0)
+  const realizadoConsultor = vendas.filter((v) => v.consultor_id === user.id).length
 
   return (
     <>
@@ -140,8 +138,8 @@ export default async function MetasPage({
                 <MetaWidget
                   titulo="Empresa"
                   subtitulo={mes}
-                  realizadoLabel={formatBRL(realizadoTotal)}
-                  metaLabel={formatBRL(metaEmpresa)}
+                  realizadoLabel={`${realizadoTotal} vendas`}
+                  metaLabel={`${metaEmpresa} vendas`}
                   pct={metaEmpresa > 0 ? (realizadoTotal / metaEmpresa) * 100 : 0}
                 />
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -152,8 +150,8 @@ export default async function MetasPage({
                       <MetaWidget
                         key={u.id}
                         titulo={u.nome}
-                        realizadoLabel={formatBRL(realizado)}
-                        metaLabel={formatBRL(meta)}
+                        realizadoLabel={`${realizado} vendas`}
+                        metaLabel={`${meta} vendas`}
                         pct={meta > 0 ? (realizado / meta) * 100 : 0}
                       />
                     )
@@ -164,8 +162,8 @@ export default async function MetasPage({
               <MetaWidget
                 titulo="Minha Meta"
                 subtitulo={mes}
-                realizadoLabel={formatBRL(realizadoConsultor)}
-                metaLabel={formatBRL(metaConsultor)}
+                realizadoLabel={`${realizadoConsultor} vendas`}
+                metaLabel={`${metaConsultor} vendas`}
                 pct={metaConsultor > 0 ? (realizadoConsultor / metaConsultor) * 100 : 0}
               />
             )}

@@ -54,7 +54,7 @@ type OrdemDetail = {
 type Pagamento = { forma: string; valor: number }
 type ProfileSummary = { nome: string; cargo: string; unidade_id: string | null }
 type Unidade = { id: string; nome: string }
-type VeiculoOpcao = { id: string; marca: string; modelo: string; placa: string; unidades: { nome: string } | null }
+type VeiculoOpcao = { id: string; marca: string; modelo: string; placa: string | null; unidades: { nome: string } | null }
 
 function fmtData(iso: string | null) {
   if (!iso) return '—'
@@ -456,7 +456,7 @@ export default async function OrdemDetailPage({
                       </option>
                       {veiculos.map((v) => (
                         <option key={v.id} value={v.id}>
-                          {v.marca} {v.modelo} · {v.placa}
+                          {v.marca} {v.modelo} · {v.placa ?? 'sem placa'}
                           {v.unidades?.nome ? ` · ${v.unidades.nome}` : ''}
                         </option>
                       ))}

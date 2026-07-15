@@ -3,6 +3,7 @@ import { logout } from '@/app/actions'
 
 type NavKey =
   | 'leads'
+  | 'tratos'
   | 'lembretes'
   | 'dashboard'
   | 'status-do-dia'
@@ -29,6 +30,7 @@ export function Topbar({
 }) {
   const navItems: { key: NavKey; href: string; label: string }[] = [
     { key: 'leads', href: '/leads', label: 'Leads' },
+    { key: 'tratos', href: '/tratos', label: 'Tratos' },
     { key: 'lembretes', href: '/lembretes', label: 'Lembretes' },
     { key: 'estoque', href: '/estoque', label: 'Estoque' },
     { key: 'ordens', href: '/ordens', label: 'Ordens' },

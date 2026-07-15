@@ -10,7 +10,7 @@ function veiculoFields(formData: FormData) {
   const cambio = formData.get('cambio') as string
   const cor = (formData.get('cor') as string)?.trim() || null
   const ano = (formData.get('ano') as string)?.trim() || null
-  const placa = (formData.get('placa') as string)?.trim().toUpperCase()
+  const placa = (formData.get('placa') as string)?.trim().toUpperCase() || null
   const status = formData.get('status') as string
   const unidade_id = formData.get('unidade_id') as string
   const observacao = (formData.get('observacao') as string)?.trim() || null
@@ -45,8 +45,8 @@ export async function createVeiculo(formData: FormData) {
   const supabase = await createClient()
   const fields = veiculoFields(formData)
 
-  if (!fields.marca || !fields.modelo || !fields.cambio || !fields.placa || !fields.unidade_id) {
-    redirect(`/estoque/new?error=${encodeURIComponent('Preencha marca, modelo, câmbio, placa e unidade')}`)
+  if (!fields.marca || !fields.modelo || !fields.cambio || !fields.unidade_id) {
+    redirect(`/estoque/new?error=${encodeURIComponent('Preencha marca, modelo, câmbio e unidade')}`)
   }
 
   const { error } = await supabase.from('veiculos').insert(fields)
@@ -65,8 +65,8 @@ export async function updateVeiculo(formData: FormData) {
   const id = formData.get('id') as string
   const fields = veiculoFields(formData)
 
-  if (!fields.marca || !fields.modelo || !fields.cambio || !fields.placa || !fields.unidade_id) {
-    redirect(`/estoque/${id}?error=${encodeURIComponent('Preencha marca, modelo, câmbio, placa e unidade')}`)
+  if (!fields.marca || !fields.modelo || !fields.cambio || !fields.unidade_id) {
+    redirect(`/estoque/${id}?error=${encodeURIComponent('Preencha marca, modelo, câmbio e unidade')}`)
   }
 
   const { error } = await supabase

@@ -15,7 +15,7 @@ type Veiculo = {
   blindado: boolean | null
   cor: string | null
   ano: string | null
-  placa: string
+  placa: string | null
   licenciado_ate: number | null
   no_site: boolean
   status: string
@@ -175,7 +175,7 @@ export default async function EstoquePage({
                           </p>
                           <p className="text-[.7rem] normal-case text-[var(--text-muted)]">
                             {veiculo.ano ? `${veiculo.ano} · ` : ''}
-                            {veiculo.placa}
+                            {veiculo.placa ?? 'sem placa'}
                           </p>
                         </div>
                         <span className={`badge ${statusBadgeClass[veiculo.status]}`}>
@@ -215,7 +215,7 @@ export default async function EstoquePage({
                               <input type="hidden" name="id" value={veiculo.id} />
                               <ConfirmButton
                                 className="text-[.72rem] font-bold text-[var(--danger)] hover:underline"
-                                confirmMessage={`Remover ${veiculo.marca} ${veiculo.modelo} (${veiculo.placa}) do estoque?`}
+                                confirmMessage={`Remover ${veiculo.marca} ${veiculo.modelo} (${veiculo.placa ?? 'sem placa'}) do estoque?`}
                               >
                                 Excluir
                               </ConfirmButton>

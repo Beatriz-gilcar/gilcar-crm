@@ -16,7 +16,7 @@ type VeiculoDetail = {
   blindado: boolean | null
   cor: string | null
   ano: string | null
-  placa: string
+  placa: string | null
   licenciado_ate: number | null
   no_site: boolean
   status: string
@@ -102,7 +102,7 @@ export default async function VeiculoDetailPage({
                 <span className={`badge badge-enviado`}>{statusLabel[veiculo.status]}</span>
               </div>
               <div className="sec-body sec-pad flex flex-col gap-1 text-[.82rem] normal-case text-white">
-                <p>Placa: {veiculo.placa}</p>
+                <p>Placa: {veiculo.placa ?? '—'}</p>
                 <p>Câmbio: {veiculo.cambio === 'manual' ? 'Manual' : 'Automático'}</p>
                 <p>Ano: {veiculo.ano ?? '—'}</p>
                 <p>Cor: {veiculo.cor ?? '—'}</p>
@@ -194,7 +194,7 @@ export default async function VeiculoDetailPage({
                 <div className="grid2">
                   <div className="form-group" style={{ marginBottom: 0 }}>
                     <label>Placa</label>
-                    <input name="placa" type="text" required className="uppercase" defaultValue={veiculo.placa} />
+                    <input name="placa" type="text" className="uppercase" defaultValue={veiculo.placa ?? ''} />
                   </div>
                   <div className="form-group" style={{ marginBottom: 0 }}>
                     <label>Licenciado até</label>
@@ -267,7 +267,7 @@ export default async function VeiculoDetailPage({
               <input type="hidden" name="id" value={veiculo.id} />
               <ConfirmButton
                 className="text-[.72rem] font-bold text-[var(--red)] hover:underline"
-                confirmMessage={`Remover ${veiculo.marca} ${veiculo.modelo} (${veiculo.placa}) do estoque?`}
+                confirmMessage={`Remover ${veiculo.marca} ${veiculo.modelo} (${veiculo.placa ?? 'sem placa'}) do estoque?`}
               >
                 Remover veículo
               </ConfirmButton>

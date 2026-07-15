@@ -121,7 +121,7 @@ export default async function NewVeiculoPage({
             <div className="grid2">
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label>Placa</label>
-                <input name="placa" type="text" required className="uppercase" />
+                <input name="placa" type="text" className="uppercase" placeholder="Opcional (0km sem placa)" />
               </div>
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label>Licenciado até</label>
