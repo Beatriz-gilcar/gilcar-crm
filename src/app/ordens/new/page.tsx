@@ -1,8 +1,10 @@
 import { createClient } from '@/lib/supabase/server'
 import { Topbar } from '@/components/Topbar'
-import { ToggleGroup } from '@/components/ToggleGroup'
-import { formaPagamentoLabel } from '@/lib/ordens'
+import { OrdemForm, type OrdemFormDefaults } from '@/components/OrdemForm'
+import { formaPagamentoLabel, bancos } from '@/lib/ordens'
+import { maskTelefone } from '@/lib/mask'
 import { createOrdem } from '../actions'
+import { isGerenciaCargo, podeVerTudo } from '@/lib/membros'
 
 type ProfileSummary = { nome: string; cargo: string; unidade_id: string | null }
 type Unidade = { id: string; nome: string }
@@ -15,10 +17,19 @@ function hojeISO() {
 export default async function NewOrdemPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>
+  // cliente/celular/veiculo vêm do botão "Virou venda" da Ficha, que empurra
+  // os dados do atendimento pra cá.
+  searchParams: Promise<{
+    error?: string
+    cliente?: string
+    celular?: string
+    veiculo?: string
+  }>
 }) {
-  const { error } = await searchParams
+  const { error, cliente, celular, veiculo } = await searchParams
   const supabase = await createClient()
+
+  const veioDeAtendimento = Boolean(cliente || celular || veiculo)
 
   const {
     data: { user },
@@ -34,7 +45,8 @@ export default async function NewOrdemPage({
     .eq('id', user.id)
     .single<ProfileSummary>()
 
-  const isGerencia = profile?.cargo === 'admin' || profile?.cargo === 'gerente'
+  const isGerencia = isGerenciaCargo(profile?.cargo)
+  const verTudo = podeVerTudo(profile?.cargo)
   const isAdmin = profile?.cargo === 'admin'
 
   let unidades: Unidade[] = []
@@ -54,268 +66,68 @@ export default async function NewOrdemPage({
   }
 
   const { data: veiculosData } = await veiculosQuery.overrideTypes<VeiculoOpcao[]>()
-  const veiculos = veiculosData ?? []
+  const veiculos = (veiculosData ?? []).map((v) => ({
+    id: v.id,
+    label: `${v.marca} ${v.modelo} · ${v.placa ?? 'sem placa'}${v.unidades?.nome ? ` · ${v.unidades.nome}` : ''}`,
+  }))
+
+  const pagamentosVazios = Object.fromEntries(Object.keys(formaPagamentoLabel).map((f) => [f, '']))
+
+  const defaults: OrdemFormDefaults = {
+    tipo: 'venda',
+    data_venda: hojeISO(),
+    unidade_id: '',
+    origem_cliente: '',
+    numero_venda: '',
+    retorno: '',
+    cliente_nome: cliente ?? '',
+    cliente_cpf_cnpj: '',
+    cliente_rg: '',
+    cliente_celular: celular ? maskTelefone(celular) : '',
+    cliente_cep: '',
+    cliente_numero: '',
+    cliente_endereco: '',
+    cliente_email: '',
+    veiculo_km: '',
+    observacao: '',
+    manutencao: '',
+    veiculo_fonte: veioDeAtendimento ? 'avulso' : 'estoque',
+    veiculo_id: '',
+    veiculo_marca_manual: '',
+    veiculo_modelo_manual: veiculo ?? '',
+    veiculo_ano_manual: '',
+    veiculo_placa_manual: '',
+    veiculo_cor_manual: '',
+    valor_total: '',
+    desconto: '',
+    valor_financiado: '',
+    financeira: '',
+    pagamentos: pagamentosVazios,
+    trocas: [],
+  }
 
   return (
     <>
       <Topbar
         nome={profile?.nome ?? user.email ?? ''}
         cargo={profile?.cargo ?? ''}
-        isGerencia={isGerencia}
+        verTudo={verTudo}
         isAdmin={isAdmin}
         active="ordens"
       />
       <div className="flex flex-1 justify-center px-4 py-8">
-        <form action={createOrdem} className="os-form w-full max-w-2xl flex flex-col gap-4">
-          {error && (
-            <p className="rounded-md bg-[#1a0808] px-3 py-2 text-[.78rem] normal-case text-[var(--red)]">
-              {error}
-            </p>
-          )}
-
-          <div>
-            <div className="sec-header">
-              <div className="sec-title">Nova ordem de serviço</div>
-            </div>
-            <div className="sec-body sec-pad flex flex-col gap-3">
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label>Tipo</label>
-                <ToggleGroup
-                  name="tipo"
-                  defaultValue="venda"
-                  options={[
-                    { value: 'venda', label: 'Venda' },
-                    { value: 'compra', label: 'Compra' },
-                  ]}
-                />
-              </div>
-
-              <div className="grid2">
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label>Data da venda</label>
-                  <input name="data_venda" type="date" defaultValue={hojeISO()} required />
-                </div>
-                {isGerencia ? (
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label>Unidade</label>
-                    <select name="unidade_id" required defaultValue="">
-                      <option value="" disabled>
-                        Selecione...
-                      </option>
-                      {unidades.map((u) => (
-                        <option key={u.id} value={u.id}>
-                          {u.nome}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                ) : (
-                  <input type="hidden" name="unidade_id" value={profile?.unidade_id ?? ''} />
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <div className="sec-header">
-              <div className="sec-title">
-                <span className="only-venda-label">Comprador</span>
-                <span className="only-compra-label">Vendedor</span>
-              </div>
-            </div>
-            <div className="sec-body sec-pad flex flex-col gap-3">
-              <div className="grid2">
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label>Nome</label>
-                  <input name="cliente_nome" type="text" required />
-                </div>
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label>CPF/CNPJ</label>
-                  <input name="cliente_cpf_cnpj" type="text" />
-                </div>
-              </div>
-              <div className="grid2">
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label>RG</label>
-                  <input name="cliente_rg" type="text" />
-                </div>
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label>Celular</label>
-                  <input name="cliente_celular" type="tel" />
-                </div>
-              </div>
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label>Endereço</label>
-                <input name="cliente_endereco" type="text" />
-              </div>
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label>E-mail</label>
-                <input name="cliente_email" type="email" />
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <div className="sec-header">
-              <div className="sec-title">Veículo</div>
-            </div>
-            <div className="sec-body sec-pad flex flex-col gap-3">
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label>Origem</label>
-                <ToggleGroup
-                  name="veiculo_fonte"
-                  defaultValue="estoque"
-                  options={[
-                    { value: 'estoque', label: 'Do estoque' },
-                    { value: 'avulso', label: 'Avulso (fora do estoque)' },
-                  ]}
-                />
-              </div>
-
-              <div className="veiculo-estoque-block form-group" style={{ marginBottom: 0 }}>
-                <label>Veículo em estoque</label>
-                <select name="veiculo_id" defaultValue="">
-                  <option value="" disabled>
-                    Selecione...
-                  </option>
-                  {veiculos.map((v) => (
-                    <option key={v.id} value={v.id}>
-                      {v.marca} {v.modelo} · {v.placa ?? 'sem placa'}
-                      {v.unidades?.nome ? ` · ${v.unidades.nome}` : ''}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="veiculo-avulso-block flex flex-col gap-3">
-                <div className="grid2">
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label>Marca</label>
-                    <input name="veiculo_marca_manual" type="text" />
-                  </div>
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label>Modelo</label>
-                    <input name="veiculo_modelo_manual" type="text" />
-                  </div>
-                </div>
-                <div className="grid2">
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label>Ano</label>
-                    <input name="veiculo_ano_manual" type="text" placeholder="2023/2024" />
-                  </div>
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label>Placa</label>
-                    <input name="veiculo_placa_manual" type="text" className="uppercase" />
-                  </div>
-                </div>
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label>Cor</label>
-                  <input name="veiculo_cor_manual" type="text" />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <div className="sec-header">
-              <div className="sec-title">Valores</div>
-            </div>
-            <div className="sec-body sec-pad flex flex-col gap-3">
-              <div className="grid2">
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label>Valor total</label>
-                  <input name="valor_total" type="number" step="0.01" min="0" required />
-                </div>
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label>Desconto</label>
-                  <input name="desconto" type="number" step="0.01" min="0" defaultValue="0" />
-                </div>
-              </div>
-              <div className="grid2">
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label>Valor financiado</label>
-                  <input name="valor_financiado" type="number" step="0.01" min="0" defaultValue="0" />
-                </div>
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label>Financeira</label>
-                  <input name="financeira" type="text" />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <div className="sec-header">
-              <div className="sec-title">Formas de pagamento</div>
-            </div>
-            <div className="sec-body sec-pad">
-              <div className="grid2">
-                {Object.entries(formaPagamentoLabel).map(([value, label]) => (
-                  <div key={value} className="form-group" style={{ marginBottom: 0 }}>
-                    <label>{label}</label>
-                    <input name={`pagamento_${value}`} type="number" step="0.01" min="0" defaultValue="0" />
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          <div className="only-venda">
-            <div className="sec-header">
-              <div className="sec-title">Troca</div>
-            </div>
-            <div className="sec-body sec-pad flex flex-col gap-3">
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label>Há veículo na troca?</label>
-                <ToggleGroup
-                  name="tem_troca"
-                  defaultValue="nao"
-                  options={[
-                    { value: 'sim', label: 'Sim' },
-                    { value: 'nao', label: 'Não' },
-                  ]}
-                />
-              </div>
-
-              <div className="troca-detalhe flex flex-col gap-3">
-                <div className="grid2">
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label>Marca</label>
-                    <input name="troca_marca" type="text" />
-                  </div>
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label>Modelo</label>
-                    <input name="troca_modelo" type="text" />
-                  </div>
-                </div>
-                <div className="grid2">
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label>Ano</label>
-                    <input name="troca_ano" type="text" placeholder="2023/2024" />
-                  </div>
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label>Placa</label>
-                    <input name="troca_placa" type="text" className="uppercase" />
-                  </div>
-                </div>
-                <div className="grid2">
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label>Valor avaliado</label>
-                    <input name="troca_valor_avaliado" type="number" step="0.01" min="0" defaultValue="0" />
-                  </div>
-                  <div className="form-group" style={{ marginBottom: 0 }}>
-                    <label>Dívida do veículo</label>
-                    <input name="troca_divida" type="number" step="0.01" min="0" defaultValue="0" />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <button type="submit" className="btn btn-red self-start">
-            Salvar ordem de serviço
-          </button>
-        </form>
+        <OrdemForm
+          action={createOrdem}
+          mode="new"
+          isGerencia={isGerencia}
+          unidades={unidades}
+          unidadeFixa={profile?.unidade_id ?? ''}
+          veiculos={veiculos}
+          bancos={bancos}
+          formasPagamento={Object.entries(formaPagamentoLabel).map(([value, label]) => ({ value, label }))}
+          defaults={defaults}
+          errorMessage={error}
+        />
       </div>
     </>
   )

@@ -73,7 +73,7 @@ export default async function DefinirPremiacaoPage({
 
   return (
     <>
-      <Topbar nome={profile?.nome ?? user.email ?? ''} cargo={profile?.cargo ?? ''} isGerencia isAdmin active="premiacao" />
+      <Topbar nome={profile?.nome ?? user.email ?? ''} cargo={profile?.cargo ?? ''} verTudo isAdmin active="premiacao" />
       <div className="flex flex-1 justify-center px-4 py-8">
         <div className="w-full max-w-2xl flex flex-col gap-4">
           <Link href="/premiacao" className="text-[.72rem] text-[var(--text-muted)] hover:text-white">

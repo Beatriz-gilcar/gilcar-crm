@@ -4,13 +4,19 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { Topbar } from '@/components/Topbar'
 import { ToggleGroup } from '@/components/ToggleGroup'
+import { ConfirmButton } from '@/components/ConfirmButton'
 import { cargoLabel, cargoBadgeClass } from '@/lib/membros'
+import { formatarTelefone } from '@/lib/whatsapp'
+import { alternarAtivoMembro } from './actions'
 
 type Membro = {
   id: string
   nome: string
   cargo: string
   unidade_id: string | null
+  gerente_responsavel: string | null
+  telefone: string | null
+  ativo: boolean
   unidades: { nome: string } | null
 }
 
@@ -20,9 +26,9 @@ type Unidade = { id: string; nome: string }
 export default async function AdminPage({
   searchParams,
 }: {
-  searchParams: Promise<{ unidade_id?: string; cargo?: string }>
+  searchParams: Promise<{ unidade_id?: string; cargo?: string; situacao?: string; error?: string }>
 }) {
-  const { unidade_id, cargo } = await searchParams
+  const { unidade_id, cargo, situacao, error } = await searchParams
   const supabase = await createClient()
 
   const {
@@ -46,9 +52,12 @@ export default async function AdminPage({
   const { data: unidadesData } = await supabase.from('unidades').select('id, nome').order('nome')
   const unidades = (unidadesData ?? []) as Unidade[]
 
+  const verInativos = situacao === 'inativos'
+
   let query = supabase
     .from('profiles')
-    .select('id, nome, cargo, unidade_id, unidades(nome)')
+    .select('id, nome, cargo, unidade_id, gerente_responsavel, telefone, ativo, unidades(nome)')
+    .eq('ativo', !verInativos)
     .order('nome')
 
   if (unidade_id) query = query.eq('unidade_id', unidade_id)
@@ -61,15 +70,20 @@ export default async function AdminPage({
   const { data: usersData } = await adminClient.auth.admin.listUsers({ perPage: 200 })
   const emailById = new Map(usersData?.users.map((u) => [u.id, u.email ?? '—']) ?? [])
 
-  const porCargo = { consultor: 0, gerente: 0, admin: 0 } as Record<string, number>
+  const porCargo: Record<string, number> = {}
   for (const m of membros) porCargo[m.cargo] = (porCargo[m.cargo] ?? 0) + 1
+
+  // Um card por cargo, em vez de um "Gerência" somando gerente + supervisor +
+  // admin: aquele número lia como "N gerentes" e não era. Só entram os cargos
+  // que existem de fato na listagem filtrada.
+  const cargosNaEquipe = Object.keys(cargoLabel).filter((c) => (porCargo[c] ?? 0) > 0)
 
   return (
     <>
       <Topbar
         nome={profile?.nome ?? user.email ?? ''}
         cargo={profile?.cargo ?? ''}
-        isGerencia
+        verTudo
         isAdmin
         active="admin"
       />
@@ -77,18 +91,22 @@ export default async function AdminPage({
         <div className="mx-auto w-full max-w-4xl">
           <div className="kpi-grid">
             <div className="kpi-card">
-              <div className="kpi-label">Total da equipe</div>
+              <div className="kpi-label">{verInativos ? 'Inativos' : 'Total da equipe'}</div>
               <div className="kpi-val">{membros.length}</div>
             </div>
-            <div className="kpi-card">
-              <div className="kpi-label">Consultores</div>
-              <div className="kpi-val">{porCargo.consultor ?? 0}</div>
-            </div>
-            <div className="kpi-card">
-              <div className="kpi-label">Gerência</div>
-              <div className="kpi-val">{(porCargo.gerente ?? 0) + (porCargo.admin ?? 0)}</div>
-            </div>
+            {cargosNaEquipe.map((c) => (
+              <div key={c} className="kpi-card">
+                <div className="kpi-label">{cargoLabel[c]}</div>
+                <div className="kpi-val">{porCargo[c]}</div>
+              </div>
+            ))}
           </div>
+
+          {error && (
+            <p className="mt-4 rounded-md bg-[#1a0808] px-3 py-2 text-[.78rem] normal-case text-[var(--red)]">
+              {error}
+            </p>
+          )}
 
           <div className="mt-6 flex items-center justify-between">
             <div className="sec-title" style={{ borderBottom: 'none', paddingBottom: 0 }}>
@@ -117,33 +135,74 @@ export default async function AdminPage({
                   ]}
                 />
               </div>
+              <div className="chip-row">
+                <ToggleGroup
+                  name="situacao"
+                  defaultValue={situacao ?? ''}
+                  options={[
+                    { value: '', label: 'Ativos' },
+                    { value: 'inativos', label: 'Inativos' },
+                  ]}
+                />
+              </div>
               <button type="submit" className="btn btn-outline btn-sm self-start">
                 Filtrar
               </button>
             </form>
           </div>
-          <div className="sec-body mt-4" style={{ padding: 0 }}>
+          <div className="mt-4">
             {membros.length === 0 ? (
-              <div className="empty-state">Nenhum membro encontrado.</div>
+              <div className="sec-body">
+                <div className="empty-state">
+                  {verInativos ? 'Nenhum membro inativo.' : 'Nenhum membro encontrado.'}
+                </div>
+              </div>
             ) : (
-              <div className="flex flex-col">
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {membros.map((membro) => (
-                  <Link
-                    key={membro.id}
-                    href={`/admin/${membro.id}`}
-                    className="flex items-center justify-between gap-4 border-t border-[var(--border)] px-4 py-3 first:border-t-0 hover:bg-white/[.03]"
-                  >
-                    <div>
+                  <div key={membro.id} className="card sec-pad flex flex-col gap-2">
+                    <div className="flex items-start justify-between gap-2">
                       <p className="font-semibold text-white">{membro.nome}</p>
-                      <p className="text-[.72rem] normal-case text-[var(--text-muted)]">
-                        {emailById.get(membro.id) ?? '—'}
-                        {membro.unidades?.nome ? ` · ${membro.unidades.nome}` : ' · sem unidade'}
-                      </p>
+                      <span className={`badge ${cargoBadgeClass[membro.cargo]}`}>
+                        {cargoLabel[membro.cargo]}
+                      </span>
                     </div>
-                    <span className={`badge ${cargoBadgeClass[membro.cargo]}`}>
-                      {cargoLabel[membro.cargo]}
-                    </span>
-                  </Link>
+
+                    <div className="flex flex-col gap-[2px] text-[.72rem] normal-case text-[var(--text-muted)]">
+                      <span>{membro.unidades?.nome ?? 'Todas'}</span>
+                      <span className="break-all">{emailById.get(membro.id) ?? '—'}</span>
+                      <span>Gerente: {membro.gerente_responsavel || '—'}</span>
+                      {/* Sem número a pessoa não recebe aviso nenhum, e isso
+                          seria invisível sem apontar aqui. */}
+                      {membro.telefone ? (
+                        <span>WhatsApp: {formatarTelefone(membro.telefone)}</span>
+                      ) : (
+                        <span className="text-[var(--warning)]">Sem WhatsApp — não recebe avisos</span>
+                      )}
+                    </div>
+
+                    <div className="mt-1 flex gap-2">
+                      <Link href={`/admin/${membro.id}`} className="btn btn-outline btn-sm">
+                        Editar
+                      </Link>
+                      <form action={alternarAtivoMembro}>
+                        <input type="hidden" name="id" value={membro.id} />
+                        <input type="hidden" name="ativo" value={String(membro.ativo)} />
+                        {membro.ativo ? (
+                          <ConfirmButton
+                            className="btn btn-outline btn-sm"
+                            confirmMessage={`Desativar ${membro.nome}? Ele perde o login, mas o histórico dele (fichas, atendimentos, ordens, metas) continua no sistema. Dá pra reativar depois no filtro "Inativos".`}
+                          >
+                            Desativar
+                          </ConfirmButton>
+                        ) : (
+                          <button type="submit" className="btn btn-outline btn-sm">
+                            Reativar
+                          </button>
+                        )}
+                      </form>
+                    </div>
+                  </div>
                 ))}
               </div>
             )}

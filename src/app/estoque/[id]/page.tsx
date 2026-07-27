@@ -6,6 +6,7 @@ import { ToggleGroup } from '@/components/ToggleGroup'
 import { ConfirmButton } from '@/components/ConfirmButton'
 import { statusLabel } from '@/lib/veiculos'
 import { updateVeiculo, deleteVeiculo } from '../actions'
+import { podeVerTudo } from '@/lib/membros'
 
 type VeiculoDetail = {
   id: string
@@ -52,8 +53,7 @@ export default async function VeiculoDetailPage({
     .select('nome, cargo, unidade_id')
     .eq('id', user.id)
     .single<ProfileSummary>()
-
-  const isGerencia = profile?.cargo === 'admin' || profile?.cargo === 'gerente'
+  const verTudo = podeVerTudo(profile?.cargo)
   const isAdmin = profile?.cargo === 'admin'
 
   const { data: veiculo } = await supabase
@@ -83,7 +83,7 @@ export default async function VeiculoDetailPage({
       <Topbar
         nome={profile?.nome ?? user.email ?? ''}
         cargo={profile?.cargo ?? ''}
-        isGerencia={isGerencia}
+        verTudo={verTudo}
         isAdmin={isAdmin}
         active="estoque"
       />

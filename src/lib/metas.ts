@@ -18,6 +18,21 @@ export function mesAtualISO(): string {
   return new Date().toISOString().slice(0, 7)
 }
 
+// "2026-07" → "julho de 2026". O ISO cru estava vazando pra tela.
+export function mesLabel(periodo: string): string {
+  const [ano, mes] = periodo.split('-')
+  return new Date(Number(ano), Number(mes) - 1, 1).toLocaleDateString('pt-BR', {
+    month: 'long',
+    year: 'numeric',
+  })
+}
+
+// A meta de proteção é contada em unidades ("6/12 seguros"), não em reais: no
+// antigo uma proteção de R$ 0,00 conta como 1 seguro igual às outras.
+export function protecoesLabel(qtd: number): string {
+  return `${qtd} ${qtd === 1 ? 'proteção' : 'proteções'}`
+}
+
 export function semestreAtual(): string {
   const now = new Date()
   const semestre = now.getMonth() < 6 ? 'S1' : 'S2'

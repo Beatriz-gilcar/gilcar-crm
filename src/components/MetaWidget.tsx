@@ -6,16 +6,25 @@ export function MetaWidget({
   realizadoLabel,
   metaLabel,
   pct,
+  // Opcionais: quando passados, mostram a chamada "Faltam X vendas para a meta"
+  // em destaque. faltam já deve vir com piso em 0. semMeta = meta não definida.
+  faltam,
+  substantivo = 'vendas',
+  semMeta = false,
 }: {
   titulo: string
   subtitulo?: string
   realizadoLabel: string
   metaLabel: string
   pct: number
+  faltam?: number
+  substantivo?: string
+  semMeta?: boolean
 }) {
   const pctClamped = Math.min(Math.max(pct, 0), 100)
   const cor = metaColor(pct)
   const bateu = pct >= 100
+  const mostraChamada = faltam !== undefined
 
   return (
     <div className="card sec-pad">
@@ -29,10 +38,30 @@ export function MetaWidget({
         <span className={`badge ${cor.badgeClass}`}>{pct.toFixed(0)}%</span>
       </div>
 
+      {mostraChamada && (
+        <p className="my-2 normal-case text-white">
+          {semMeta ? (
+            <span className="text-[var(--text-muted)]">Meta não definida para o mês.</span>
+          ) : bateu ? (
+            <span className="text-[1.05rem] font-extrabold text-[var(--success)]">
+              Meta batida! 🎉
+            </span>
+          ) : (
+            <>
+              Faltam{' '}
+              <span className="text-[1.4rem] font-extrabold" style={{ color: cor.fillColor }}>
+                {faltam}
+              </span>{' '}
+              {substantivo} para a meta
+            </>
+          )}
+        </p>
+      )}
+
       <div className="meta-track">
         <div className="meta-fill" style={{ width: `${pctClamped}%`, background: cor.fillColor }} />
         <span className="meta-runner" style={{ left: `${pctClamped}%` }}>
-          🏃
+          🚗
         </span>
       </div>
 

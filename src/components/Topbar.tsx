@@ -2,50 +2,70 @@ import Link from 'next/link'
 import { logout } from '@/app/actions'
 
 type NavKey =
-  | 'leads'
-  | 'tratos'
+  | 'ficha'
+  | 'rotina'
   | 'lembretes'
   | 'dashboard'
   | 'status-do-dia'
-  | 'categorias'
   | 'estoque'
   | 'ordens'
+  | 'pos-venda'
   | 'metas'
   | 'premiacao'
+  | 'sdr'
   | 'gerencia'
   | 'admin'
 
 export function Topbar({
   nome,
   cargo,
-  isGerencia,
+  // Quem enxerga as abas de gestão, escrevendo ou não: gerência e visualizador.
+  // É podeVerTudo(), não isGerenciaCargo() — o visualizador precisa chegar nas
+  // telas pra ler, e são as policies do banco que impedem ele de escrever.
+  verTudo,
   isAdmin = false,
   active,
 }: {
   nome: string
   cargo: string
-  isGerencia: boolean
+  verTudo: boolean
   isAdmin?: boolean
   active: NavKey | ''
 }) {
-  const navItems: { key: NavKey; href: string; label: string }[] = [
-    { key: 'leads', href: '/leads', label: 'Leads' },
-    { key: 'tratos', href: '/tratos', label: 'Tratos' },
-    { key: 'lembretes', href: '/lembretes', label: 'Lembretes' },
-    { key: 'estoque', href: '/estoque', label: 'Estoque' },
-    { key: 'ordens', href: '/ordens', label: 'Ordens' },
-    { key: 'metas', href: '/metas', label: 'Metas' },
-    { key: 'premiacao', href: '/premiacao', label: 'Premiação' },
-    { key: 'dashboard', href: '/dashboard', label: 'Dashboard' },
-  ]
+  // Cargo pos_venda (Luciana) tem um nav enxuto: só o módulo dela e o Estoque
+  // (que ela consulta, sem editar). Não polui a tela dela com abas que ela não
+  // usa e cujas policies do banco não deixariam escrever mesmo.
+  const isPosVenda = cargo === 'pos_venda'
+  // Equipe de SDR (inclui a gerente delas): nav enxuto, só a aba de lançamento.
+  const isSdrCargo = cargo === 'sdr'
 
-  if (isGerencia) {
+  const navItems: { key: NavKey; href: string; label: string }[] = isSdrCargo
+    ? [{ key: 'sdr', href: '/sdr', label: 'SDR' }]
+    : isPosVenda
+    ? [
+        { key: 'pos-venda', href: '/pos-venda', label: 'Pós-venda' },
+        { key: 'estoque', href: '/estoque', label: 'Estoque' },
+      ]
+    : [
+        { key: 'ficha', href: '/ficha', label: 'Ficha' },
+        { key: 'rotina', href: '/rotina', label: 'Rotina do Dia' },
+        { key: 'estoque', href: '/estoque', label: 'Estoque' },
+        { key: 'ordens', href: '/ordens', label: 'Ordens' },
+        { key: 'pos-venda', href: '/pos-venda', label: 'Pós-venda' },
+        { key: 'metas', href: '/metas', label: 'Metas' },
+        { key: 'premiacao', href: '/premiacao', label: 'Premiação' },
+        { key: 'dashboard', href: '/dashboard', label: 'Dashboard' },
+      ]
+
+  if (!isPosVenda && verTudo) {
+    // Uma aba só: Consultores (Status do Dia) e Gerentes (Gerência) ficam como
+    // sub-abas dentro da mesma tela.
     navItems.push({ key: 'status-do-dia', href: '/status-do-dia', label: 'Status do Dia' })
-    navItems.push({ key: 'gerencia', href: '/gerencia', label: 'Gerência' })
-    navItems.push({ key: 'categorias', href: '/categorias', label: 'Categorias' })
   }
 
   if (isAdmin) {
+    // Consolidado de SDR: só o admin (Junior) vê.
+    navItems.push({ key: 'sdr', href: '/sdr', label: 'SDR' })
     navItems.push({ key: 'admin', href: '/admin', label: 'Admin' })
   }
 

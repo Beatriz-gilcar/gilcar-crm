@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Playfair_Display, Inter } from "next/font/google";
 import "./globals.css";
+import { CorridaMeta } from "@/components/CorridaMeta";
+import { LembretesWidget } from "@/components/LembretesWidget";
 
 const playfair = Playfair_Display({
   variable: "--font-playfair",
@@ -26,7 +28,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="pt-BR" className={`${playfair.variable} ${inter.variable} h-full antialiased`}>
-      <body className="min-h-full flex flex-col">{children}</body>
+      <body className="min-h-full flex flex-col">
+        {children}
+        <CorridaMeta />
+        <LembretesWidget />
+      </body>
     </html>
   );
 }

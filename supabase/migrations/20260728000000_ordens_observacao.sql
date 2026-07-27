@@ -1,0 +1,21 @@
+-- Ordem de serviço ganha campo de observação.
+--
+-- O formulário antigo tem três campos de texto que não tinham destino aqui:
+--
+--   obs         "NEGOCIANDO 350 DE SEGURO PARA COMPOR O VALOR DA VENDA"
+--   manutencao  "FAROL TRASEIRO ENTRANDO AGUA / POLIMENTO TECNICO / ..."
+--   origem      de onde veio o cliente: PORTA, AUTO CERTO, RETORNO, carteira...
+--
+-- Nenhum é campo vazio: são anotações reais das 24 ordens da planilha, e sem
+-- isto a migração as descartaria.
+--
+-- Cuidado pra não confundir: o formulário novo tem um rótulo "Origem", mas
+-- aquilo é `veiculo_fonte` (se o veículo vem do Estoque ou é avulso) — não
+-- tem relação com a origem do cliente.
+--
+-- Vão os três num campo só, com rótulo, pelo mesmo motivo que a Manutenção do
+-- Estoque virou observação do veículo: é anotação livre, não dado estruturado
+-- que alguém filtra. Se um dia a origem do cliente virar relatório, aí sim
+-- merece coluna própria e campo no formulário.
+
+alter table ordens_servico add column if not exists observacao text;

@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { Topbar } from '@/components/Topbar'
+import { podeVerTudo, isSomenteLeitura } from '@/lib/membros'
 
 type StatusUnidade = {
   unidade_id: string
@@ -11,7 +12,7 @@ type StatusUnidade = {
   status: string
 }
 
-type ProfileSummary = { nome: string; cargo: string }
+type ProfileSummary = { nome: string; cargo: string; unidade_id: string | null }
 
 function hojeISO() {
   return new Date().toISOString().slice(0, 10)
@@ -37,31 +38,48 @@ export default async function StatusDoDiaPage({
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('nome, cargo')
+    .select('nome, cargo, unidade_id')
     .eq('id', user.id)
     .single<ProfileSummary>()
-
-  const isGerencia = profile?.cargo === 'admin' || profile?.cargo === 'gerente'
+  const verTudo = podeVerTudo(profile?.cargo)
   const isAdmin = profile?.cargo === 'admin'
 
-  if (!isGerencia) {
+  if (!verTudo) {
     redirect('/')
   }
 
+  // Admin e visualizador (CEO) veem todas as unidades. Gerente/supervisor veem
+  // só a própria — não é pra um gerente conferir o dia de outra loja.
+  const veTodas = isAdmin || isSomenteLeitura(profile?.cargo)
+
   const { data: unidades } = await supabase.rpc('status_dia_unidades', { p_data: data })
-  const rows = (unidades ?? []) as StatusUnidade[]
+  const rows = ((unidades ?? []) as StatusUnidade[]).filter(
+    (r) => veTodas || r.unidade_id === profile?.unidade_id
+  )
 
   return (
     <>
       <Topbar
         nome={profile?.nome ?? user.email ?? ''}
         cargo={profile?.cargo ?? ''}
-        isGerencia={isGerencia}
+        verTudo={verTudo}
         isAdmin={isAdmin}
         active="status-do-dia"
       />
       <div className="flex flex-1 flex-col gap-4 px-4 py-8 sm:px-10">
         <div className="mx-auto w-full max-w-2xl">
+          <div className="chip-row mb-4">
+            <span className="whitespace-nowrap rounded-full bg-[var(--coral)] px-4 py-2 text-[.75rem] font-bold tracking-wide text-white">
+              Consultores
+            </span>
+            <Link
+              href="/gerencia"
+              className="whitespace-nowrap rounded-full border border-[var(--border)] px-4 py-2 text-[.75rem] font-bold tracking-wide text-[var(--text-muted)] transition-colors hover:text-white"
+            >
+              Gerentes
+            </Link>
+          </div>
+
           <form action="/status-do-dia" method="get" className="mb-4 flex items-end gap-3">
             <div className="form-group" style={{ marginBottom: 0, maxWidth: 200 }}>
               <label>Data</label>

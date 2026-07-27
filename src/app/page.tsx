@@ -1,5 +1,7 @@
+import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { Topbar } from '@/components/Topbar'
+import { podeVerTudo } from '@/lib/membros'
 
 type ProfileSummary = {
   nome: string
@@ -24,7 +26,11 @@ export default async function Home() {
     .eq('id', user.id)
     .single<ProfileSummary>()
 
-  const isGerencia = profile?.cargo === 'admin' || profile?.cargo === 'gerente'
+  // Equipe de SDR só usa a aba SDR — manda direto pra lá (a home não tem nada
+  // pra elas).
+  if (profile?.cargo === 'sdr') redirect('/sdr')
+
+  const verTudo = podeVerTudo(profile?.cargo)
   const isAdmin = profile?.cargo === 'admin'
 
   return (
@@ -32,7 +38,7 @@ export default async function Home() {
       <Topbar
         nome={profile?.nome ?? user.email ?? ''}
         cargo={profile?.cargo ?? ''}
-        isGerencia={isGerencia}
+        verTudo={verTudo}
         isAdmin={isAdmin}
         active=""
       />

@@ -17,10 +17,14 @@ export async function createLembrete(formData: FormData) {
 
   const titulo = (formData.get('titulo') as string)?.trim()
   const descricao = (formData.get('descricao') as string)?.trim() || null
-  const categoriaId = (formData.get('categoria_id') as string) || null
-  const dataVencimento = (formData.get('data_vencimento') as string) || null
+  // datetime-local chega como "YYYY-MM-DDTHH:MM" (horário local do Brasil).
+  // Ancoramos em -03:00 pra gravar o instante certo em UTC.
+  const rawVenc = (formData.get('data_vencimento') as string) || ''
+  const dataVencimento = rawVenc
+    ? new Date(`${rawVenc.length === 16 ? `${rawVenc}:00` : rawVenc}-03:00`).toISOString()
+    : null
   const clienteId = (formData.get('cliente_id') as string) || null
-  const voltarPara = clienteId ? `/leads/${clienteId}` : '/lembretes'
+  const voltarPara = '/lembretes'
 
   if (!titulo) {
     redirect(`${voltarPara}?error=${encodeURIComponent('Informe o título do lembrete')}`)
@@ -29,7 +33,6 @@ export async function createLembrete(formData: FormData) {
   const { error } = await supabase.from('lembretes').insert({
     titulo,
     descricao,
-    categoria_id: categoriaId,
     data_vencimento: dataVencimento,
     cliente_id: clienteId,
     consultor_id: user.id,
@@ -48,7 +51,6 @@ export async function toggleLembrete(formData: FormData) {
 
   const id = formData.get('id') as string
   const estavaConcluido = formData.get('concluido') === 'true'
-  const clienteId = (formData.get('cliente_id') as string) || null
 
   await supabase
     .from('lembretes')
@@ -59,7 +61,13 @@ export async function toggleLembrete(formData: FormData) {
     .eq('id', id)
 
   revalidatePath('/lembretes')
-  if (clienteId) {
-    revalidatePath(`/leads/${clienteId}`)
-  }
+}
+
+export async function deleteLembrete(formData: FormData) {
+  const supabase = await createClient()
+
+  const id = formData.get('id') as string
+  await supabase.from('lembretes').delete().eq('id', id)
+
+  revalidatePath('/lembretes')
 }

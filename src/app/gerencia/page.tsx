@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { Topbar } from '@/components/Topbar'
 import { ToggleGroup } from '@/components/ToggleGroup'
 import { tipoLabel, percentualColor } from '@/lib/checklists'
+import { podeVerTudo } from '@/lib/membros'
 
 type ChecklistRow = {
   id: string
@@ -39,11 +40,10 @@ export default async function GerenciaPage({
     .select('nome, cargo')
     .eq('id', user.id)
     .single<ProfileSummary>()
-
-  const isGerencia = profile?.cargo === 'admin' || profile?.cargo === 'gerente'
+  const verTudo = podeVerTudo(profile?.cargo)
   const isAdmin = profile?.cargo === 'admin'
 
-  if (!isGerencia) {
+  if (!verTudo) {
     redirect('/')
   }
 
@@ -82,12 +82,24 @@ export default async function GerenciaPage({
       <Topbar
         nome={profile?.nome ?? user.email ?? ''}
         cargo={profile?.cargo ?? ''}
-        isGerencia={isGerencia}
+        verTudo={verTudo}
         isAdmin={isAdmin}
-        active="gerencia"
+        active="status-do-dia"
       />
       <div className="flex flex-1 flex-col gap-6 px-4 py-8 sm:px-10">
         <div className="mx-auto w-full max-w-4xl">
+          <div className="chip-row mb-4">
+            <Link
+              href="/status-do-dia"
+              className="whitespace-nowrap rounded-full border border-[var(--border)] px-4 py-2 text-[.75rem] font-bold tracking-wide text-[var(--text-muted)] transition-colors hover:text-white"
+            >
+              Consultores
+            </Link>
+            <span className="whitespace-nowrap rounded-full bg-[var(--coral)] px-4 py-2 text-[.75rem] font-bold tracking-wide text-white">
+              Gerentes
+            </span>
+          </div>
+
           <div className="kpi-grid">
             <div className="kpi-card">
               <div className="kpi-label">Checklists preenchidos</div>

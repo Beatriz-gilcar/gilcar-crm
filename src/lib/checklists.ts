@@ -4,38 +4,43 @@ export const tipoLabel: Record<string, string> = {
   mensal: 'Mensal',
 }
 
-// Placeholder genérico (rotina de loja, cobrança de metas, padrão de
-// atendimento) — ajustar o texto exato depois se necessário.
+// As perguntas reais do sistema antigo (const CHECKLIST, Html:2263).
+//
+// O que estava aqui antes era um placeholder inventado ("Loja abriu no horário
+// previsto?", "Vitrine e fachada estão organizadas?") que nunca foi conferido
+// contra o original. As de verdade são sobre condução da equipe e da
+// negociação, não sobre rotina de loja — e são as que os gerentes já
+// responderam nos 15 checklists da planilha.
 export const perguntasPorTipo: Record<string, string[]> = {
   diario: [
-    'Loja abriu no horário previsto?',
-    'Vitrine e fachada estão organizadas?',
-    'Todos os vendedores registraram ponto?',
-    'Atendimentos do dia foram lançados no sistema?',
-    'Metas do dia foram repassadas à equipe?',
-    'Ambiente de trabalho está limpo e organizado?',
+    'Revisou atendimentos presenciais, on-line, postagens e avaliações?',
+    'Deu feedback individual pro vendedor que não converteu?',
+    'Identificou clientes quentes pra retorno amanhã?',
+    'Criou uma estratégia para esse atendimento?',
+    'Alguma negociação travada que precisa de ação amanhã?',
+    'Aprovou o dia de todos os consultores que enviaram a ficha?',
   ],
   semanal: [
-    'Reunião semanal de equipe foi realizada?',
-    'Metas da semana foram revisadas com a equipe?',
-    'Estoque foi conferido fisicamente?',
-    'Leads sem atendimento há mais de 3 dias foram verificados?',
-    'Feedback individual foi dado a cada vendedor?',
-    'Ordens de serviço pendentes de aprovação foram revisadas?',
-    'Padrão de atendimento foi reforçado com a equipe?',
-    'Reclamações de clientes da semana foram tratadas?',
-    'Relatório semanal foi enviado à diretoria?',
+    'A sua loja está dentro da meta?',
+    'Quais vendedores estão abaixo da meta?',
+    'O que fez pra corrigi-los?',
+    'Os agendamentos compareceram?',
+    'Algum cliente gerou problema na sua loja? Como resolveu?',
+    'Qual vendedor teve o melhor comportamento essa semana? Não existe empate!',
+    'Qual vendedor teve o pior comportamento essa semana?',
+    'Qual o seu plano de ação pra próxima semana?',
+    'Quando será sua reunião semanal com a equipe? Data e hora:',
   ],
   mensal: [
-    'Metas do mês foram atingidas?',
-    'Avaliação individual de cada vendedor foi realizada?',
-    'Estoque físico foi batido com o sistema?',
-    'Comissões e premiações do mês foram conferidas?',
-    'Plano de ação para o próximo mês foi definido?',
-    'Treinamento ou reciclagem da equipe foi realizado?',
-    'Indicadores de conversão (leads → vendas) foram analisados?',
-    'Padrões de limpeza/manutenção da unidade foram auditados?',
-    'Reunião mensal com a diretoria foi realizada?',
+    'Meta x Resultado — como fechou o mês?',
+    'Ranking dos vendedores: conversão individual, on-line, agendamentos x comparecimentos',
+    'O que funcionou melhor esse mês? Por quê?',
+    'O que não funcionou? Por quê?',
+    'Vendedores que precisam de treinamento?',
+    'Vendedores que precisam de advertência ou desligamento?',
+    'Sugestão de melhoria na sua unidade — processo/venda?',
+    'Sobre o seu desenvolvimento pessoal: o que aprendeu esse mês?',
+    'Quando será a sua reunião mensal com a equipe? Data e hora:',
   ],
 }
 

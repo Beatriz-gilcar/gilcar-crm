@@ -4,6 +4,8 @@ import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { podeFicarSemUnidade } from '@/lib/membros'
+import { normalizarTelefone } from '@/lib/whatsapp'
 
 async function requireAdmin() {
   const supabase = await createClient()
@@ -34,9 +36,26 @@ export async function createMembro(formData: FormData) {
   const cargo = formData.get('cargo') as string
   const unidadeRaw = formData.get('unidade_id') as string
   const unidade_id = unidadeRaw || null
+  const gerente_responsavel = (formData.get('gerente_responsavel') as string)?.trim() || null
+  const telefoneRaw = (formData.get('telefone') as string)?.trim()
+  const telefone = telefoneRaw ? normalizarTelefone(telefoneRaw) : null
 
-  if (!nome || !email || !senha || !cargo || (cargo !== 'admin' && !unidade_id)) {
-    redirect(`/admin/new?error=${encodeURIComponent('Preencha nome, e-mail, senha, cargo e unidade')}`)
+  if (!nome || !email || !senha || !cargo) {
+    redirect(`/admin/new?error=${encodeURIComponent('Preencha nome, e-mail, senha e cargo')}`)
+  }
+
+  // Recusa número torto na entrada: o check do banco rejeitaria depois, e a
+  // Meta descartaria a mensagem em silêncio — pior ainda.
+  if (telefoneRaw && !telefone) {
+    redirect(`/admin/new?error=${encodeURIComponent('Telefone inválido — use DDD + número, ex: (21) 99999-8888')}`)
+  }
+
+  // Admin e Visualizador são cargos de rede inteira: o acesso deles não passa
+  // por unidade (is_gerencia() / is_visualizador() ignoram o campo), então
+  // "Todas" é legítimo. Consultor, Supervisor e Gerente precisam de unidade —
+  // é ela que define o escopo deles, e a Ficha não grava sem.
+  if (!podeFicarSemUnidade(cargo) && !unidade_id) {
+    redirect(`/admin/new?error=${encodeURIComponent('Unidade "Todas" é só para Admin e Visualizador — escolha uma unidade')}`)
   }
 
   if (senha.length < 8) {
@@ -61,7 +80,7 @@ export async function createMembro(formData: FormData) {
 
   const { error: profileError } = await supabase
     .from('profiles')
-    .update({ nome, cargo, unidade_id })
+    .update({ nome, cargo, unidade_id, gerente_responsavel, telefone })
     .eq('id', created.user!.id)
 
   if (profileError) {
@@ -80,12 +99,30 @@ export async function updateMembro(formData: FormData) {
   const cargo = formData.get('cargo') as string
   const unidadeRaw = formData.get('unidade_id') as string
   const unidade_id = unidadeRaw || null
+  const gerente_responsavel = (formData.get('gerente_responsavel') as string)?.trim() || null
+  const telefoneRaw = (formData.get('telefone') as string)?.trim()
+  const telefone = telefoneRaw ? normalizarTelefone(telefoneRaw) : null
 
-  if (!nome || !cargo || (cargo !== 'admin' && !unidade_id)) {
-    redirect(`/admin/${id}?error=${encodeURIComponent('Preencha nome, cargo e unidade')}`)
+  if (!nome || !cargo) {
+    redirect(`/admin/${id}?error=${encodeURIComponent('Preencha nome e cargo')}`)
   }
 
-  const { error } = await supabase.from('profiles').update({ nome, cargo, unidade_id }).eq('id', id)
+  if (telefoneRaw && !telefone) {
+    redirect(`/admin/${id}?error=${encodeURIComponent('Telefone inválido — use DDD + número, ex: (21) 99999-8888')}`)
+  }
+
+  // Admin e Visualizador são cargos de rede inteira: o acesso deles não passa
+  // por unidade (is_gerencia() / is_visualizador() ignoram o campo), então
+  // "Todas" é legítimo. Consultor, Supervisor e Gerente precisam de unidade —
+  // é ela que define o escopo deles, e a Ficha não grava sem.
+  if (!podeFicarSemUnidade(cargo) && !unidade_id) {
+    redirect(`/admin/${id}?error=${encodeURIComponent('Unidade "Todas" é só para Admin e Visualizador — escolha uma unidade')}`)
+  }
+
+  const { error } = await supabase
+    .from('profiles')
+    .update({ nome, cargo, unidade_id, gerente_responsavel, telefone })
+    .eq('id', id)
 
   if (error) {
     redirect(`/admin/${id}?error=${encodeURIComponent('Não foi possível salvar o membro')}`)
@@ -93,6 +130,45 @@ export async function updateMembro(formData: FormData) {
 
   revalidatePath('/admin')
   redirect(`/admin/${id}?success=1`)
+}
+
+// Desativar em vez de excluir: profiles é referenciada por vários FKs sem
+// cascade, então apagar de verdade ou falha ou levaria junto o histórico de
+// fichas, ordens e metas do membro. O ban no Auth corta o login; o `ativo` tira
+// ele da listagem. Os registros antigos continuam apontando pro perfil.
+export async function alternarAtivoMembro(formData: FormData) {
+  const supabase = await requireAdmin()
+
+  const id = formData.get('id') as string
+  const desativar = formData.get('ativo') === 'true'
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (desativar && user?.id === id) {
+    redirect(`/admin?error=${encodeURIComponent('Você não pode desativar o próprio acesso')}`)
+  }
+
+  const { error } = await supabase.from('profiles').update({ ativo: !desativar }).eq('id', id)
+
+  if (error) {
+    redirect(`/admin?error=${encodeURIComponent('Não foi possível alterar a situação do membro')}`)
+  }
+
+  const adminClient = createAdminClient()
+  const { error: authError } = await adminClient.auth.admin.updateUserById(id, {
+    ban_duration: desativar ? '876000h' : 'none',
+  })
+
+  if (authError) {
+    // O perfil já mudou; sem o ban o login continuaria de pé, então desfaz.
+    await supabase.from('profiles').update({ ativo: desativar }).eq('id', id)
+    redirect(`/admin?error=${encodeURIComponent('Não foi possível alterar o login do membro')}`)
+  }
+
+  revalidatePath('/admin')
+  redirect('/admin')
 }
 
 export async function resetSenha(formData: FormData) {

@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { Topbar } from '@/components/Topbar'
 import { createLembrete } from '../actions'
+import { podeVerTudo } from '@/lib/membros'
 
 type ProfileSummary = { nome: string; cargo: string }
 
@@ -25,21 +26,15 @@ export default async function NewLembretePage({
     .select('nome, cargo')
     .eq('id', user.id)
     .single<ProfileSummary>()
-
-  const isGerencia = profile?.cargo === 'admin' || profile?.cargo === 'gerente'
+  const verTudo = podeVerTudo(profile?.cargo)
   const isAdmin = profile?.cargo === 'admin'
-
-  const { data: categorias } = await supabase
-    .from('categorias')
-    .select('id, nome')
-    .order('nome')
 
   return (
     <>
       <Topbar
         nome={profile?.nome ?? user.email ?? ''}
         cargo={profile?.cargo ?? ''}
-        isGerencia={isGerencia}
+        verTudo={verTudo}
         isAdmin={isAdmin}
         active="lembretes"
       />
@@ -60,23 +55,12 @@ export default async function NewLembretePage({
               <input name="titulo" type="text" required />
             </div>
 
-            <div className="grid2">
-              <div className="form-group">
-                <label>Categoria</label>
-                <select name="categoria_id" defaultValue="">
-                  <option value="">Sem categoria</option>
-                  {categorias?.map((categoria) => (
-                    <option key={categoria.id} value={categoria.id}>
-                      {categoria.nome}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="form-group">
-                <label>Vencimento</label>
-                <input name="data_vencimento" type="date" />
-              </div>
+            <div className="form-group">
+              <label>Quando (data e hora)</label>
+              <input name="data_vencimento" type="datetime-local" />
+              <p className="mt-1 text-[.68rem] normal-case text-[var(--text-muted)]">
+                Na hora marcada, o lembrete pisca na tela e o navegador te avisa (com o sistema aberto).
+              </p>
             </div>
 
             <div className="form-group">

@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { Topbar } from '@/components/Topbar'
 import { tipoLabel, percentualColor } from '@/lib/checklists'
+import { podeVerTudo } from '@/lib/membros'
 
 type ChecklistDetail = {
   id: string
@@ -45,8 +46,7 @@ export default async function ChecklistDetailPage({
     .select('nome, cargo')
     .eq('id', user.id)
     .single<ProfileSummary>()
-
-  const isGerencia = profile?.cargo === 'admin' || profile?.cargo === 'gerente'
+  const verTudo = podeVerTudo(profile?.cargo)
   const isAdmin = profile?.cargo === 'admin'
 
   const { data: checklist } = await supabase
@@ -79,9 +79,9 @@ export default async function ChecklistDetailPage({
       <Topbar
         nome={profile?.nome ?? user.email ?? ''}
         cargo={profile?.cargo ?? ''}
-        isGerencia={isGerencia}
+        verTudo={verTudo}
         isAdmin={isAdmin}
-        active="gerencia"
+        active="status-do-dia"
       />
       <div className="flex flex-1 justify-center px-4 py-8">
         <div className="w-full max-w-2xl flex flex-col gap-4">

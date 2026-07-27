@@ -4,6 +4,9 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 
+// Aprovar o consultor = aprovar a ficha dele naquele dia. A tabela
+// aprovacoes_consultor_dia foi removida: fichas_diarias.status é a fonte única,
+// e ainda cobre o estado "enviado", que a tabela antiga não tinha.
 export async function aprovarConsultorDia(formData: FormData) {
   const supabase = await createClient()
 
@@ -19,18 +22,20 @@ export async function aprovarConsultorDia(formData: FormData) {
   const data = formData.get('data') as string
   const unidadeId = formData.get('unidade_id') as string
 
-  await supabase.from('aprovacoes_consultor_dia').upsert(
-    {
-      consultor_id: consultorId,
-      data,
-      status: 'aprovado',
-      aprovado_por: user.id,
-      aprovado_em: new Date().toISOString(),
-    },
-    { onConflict: 'consultor_id,data' }
-  )
+  const { error } = await supabase
+    .from('fichas_diarias')
+    .update({ status: 'aprovado', updated_at: new Date().toISOString() })
+    .eq('consultor_id', consultorId)
+    .eq('data', data)
+
+  if (error) {
+    redirect(
+      `/status-do-dia/${unidadeId}?data=${data}&error=${encodeURIComponent('Não foi possível aprovar a ficha')}`
+    )
+  }
 
   revalidatePath(`/status-do-dia/${unidadeId}`)
+  revalidatePath('/ficha')
 }
 
 export async function aprovarDiaUnidade(formData: FormData) {

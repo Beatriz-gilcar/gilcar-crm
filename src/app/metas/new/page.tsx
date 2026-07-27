@@ -1,10 +1,12 @@
+import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { Topbar } from '@/components/Topbar'
 import { createVenda } from '../actions'
+import { isGerenciaCargo, podeVerTudo } from '@/lib/membros'
 
 type ProfileSummary = { nome: string; cargo: string; unidade_id: string | null }
-type Unidade = { id: string; nome: string }
-type Membro = { id: string; nome: string; unidade_id: string | null }
+type Membro = { id: string; nome: string; unidades: { nome: string } | null }
 
 function hojeISO() {
   return new Date().toISOString().slice(0, 10)
@@ -32,19 +34,26 @@ export default async function NewVendaPage({
     .eq('id', user.id)
     .single<ProfileSummary>()
 
-  const isGerencia = profile?.cargo === 'admin' || profile?.cargo === 'gerente'
+  const isGerencia = isGerenciaCargo(profile?.cargo)
+  const verTudo = podeVerTudo(profile?.cargo)
   const isAdmin = profile?.cargo === 'admin'
 
-  let unidades: Unidade[] = []
+  // Só o admin lança venda; gerência e consultor apenas visualizam.
+  if (!isAdmin) {
+    redirect('/metas')
+  }
+
+  // Vendedores para o Junior escolher. A venda vai direto pra loja do vendedor
+  // (a action deriva a unidade dele), então não pedimos a loja no formulário.
   let membros: Membro[] = []
   if (isGerencia) {
-    const { data } = await supabase.from('unidades').select('id, nome').order('nome')
-    unidades = data ?? []
     const { data: membrosData } = await supabase
       .from('profiles')
-      .select('id, nome, unidade_id')
-      .in('cargo', ['consultor', 'gerente'])
+      .select('id, nome, unidades(nome)')
+      .eq('ativo', true)
+      .neq('cargo', 'visualizador')
       .order('nome')
+      .overrideTypes<Membro[]>()
     membros = membrosData ?? []
   }
 
@@ -53,12 +62,18 @@ export default async function NewVendaPage({
       <Topbar
         nome={profile?.nome ?? user.email ?? ''}
         cargo={profile?.cargo ?? ''}
-        isGerencia={isGerencia}
+        verTudo={verTudo}
         isAdmin={isAdmin}
         active="metas"
       />
       <div className="flex flex-1 justify-center px-4 py-8">
         <form action={createVenda} className="w-full max-w-lg">
+          <Link
+            href="/metas"
+            className="mb-3 inline-block text-[.72rem] font-bold text-[var(--text-muted)] hover:text-white"
+          >
+            ← Voltar para Metas
+          </Link>
           <div className="sec-header">
             <div className="sec-title">Lançar venda</div>
           </div>
@@ -76,57 +91,25 @@ export default async function NewVendaPage({
               </div>
               {isGerencia ? (
                 <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label>Unidade</label>
-                  <select name="unidade_id" required defaultValue="">
-                    <option value="" disabled>
-                      Selecione...
-                    </option>
-                    {unidades.map((u) => (
-                      <option key={u.id} value={u.id}>
-                        {u.nome}
+                  <label>Vendedor</label>
+                  <select name="consultor_id" defaultValue="">
+                    <option value="">Eu mesmo</option>
+                    {membros.map((m) => (
+                      <option key={m.id} value={m.id}>
+                        {m.nome} — {m.unidades?.nome ?? 'Todas'}
                       </option>
                     ))}
                   </select>
                 </div>
               ) : (
-                <input type="hidden" name="unidade_id" value={profile?.unidade_id ?? ''} />
+                // Consultor lança pra si; a action já usa a unidade dele.
+                <input type="hidden" name="consultor_id" value={user.id} />
               )}
             </div>
 
-            {isGerencia && (
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label>Vendedor</label>
-                <select name="consultor_id" defaultValue="">
-                  <option value="">Eu mesmo</option>
-                  {membros.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.nome}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            <div className="grid2">
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label>Marca</label>
-                <input name="veiculo_marca" type="text" required />
-              </div>
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label>Modelo</label>
-                <input name="veiculo_modelo" type="text" required />
-              </div>
-            </div>
-
-            <div className="grid2">
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label>Placa</label>
-                <input name="veiculo_placa" type="text" className="uppercase" />
-              </div>
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label>Valor</label>
-                <input name="valor" type="number" step="0.01" min="0" required />
-              </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label>Veículo vendido</label>
+              <input name="veiculo" type="text" placeholder="Ex.: Onix Vinho 2019" required />
             </div>
 
             <div className="form-group" style={{ marginBottom: 0 }}>

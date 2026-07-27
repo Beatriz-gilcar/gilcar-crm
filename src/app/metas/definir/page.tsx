@@ -68,7 +68,7 @@ export default async function DefinirMetasPage({
 
   return (
     <>
-      <Topbar nome={profile?.nome ?? user.email ?? ''} cargo={profile?.cargo ?? ''} isGerencia isAdmin active="metas" />
+      <Topbar nome={profile?.nome ?? user.email ?? ''} cargo={profile?.cargo ?? ''} verTudo isAdmin active="metas" />
       <div className="flex flex-1 justify-center px-4 py-8">
         <div className="w-full max-w-2xl flex flex-col gap-4">
           <div className="sec-header">

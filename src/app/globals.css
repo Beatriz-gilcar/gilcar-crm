@@ -93,6 +93,18 @@ input[type='date']::-webkit-calendar-picker-indicator {
   gap: 10px;
 }
 
+.grid3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+}
+
+@media (max-width: 640px) {
+  .grid3 {
+    grid-template-columns: 1fr;
+  }
+}
+
 .btn {
   display: inline-block;
   padding: 11px 22px;
@@ -194,6 +206,11 @@ input[type='date']::-webkit-calendar-picker-indicator {
 .badge-rejeitado {
   background: var(--danger-soft);
   color: var(--danger);
+}
+
+.badge-neutro {
+  background: var(--coral-soft);
+  color: var(--coral);
 }
 
 .sec-header {
@@ -417,7 +434,9 @@ tr:hover td {
 .meta-runner {
   position: absolute;
   top: 50%;
-  transform: translate(-50%, -50%);
+  /* scaleX(-1) espelha o emoji (carro) pra apontar/andar para a DIREITA, rumo à
+     meta — por padrão o 🚗 aponta pra esquerda. */
+  transform: translate(-50%, -50%) scaleX(-1);
   font-size: 1.15rem;
   line-height: 1;
 }
@@ -443,6 +462,52 @@ tr:hover td {
   to {
     transform: translateY(46px) rotate(360deg);
     opacity: 0;
+  }
+}
+
+/* Confete de tela cheia (Corrida da Meta): dispara ao abrir o sistema quando
+   alguma loja/vendedor bateu a meta. */
+.confetti-full {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 60;
+  overflow: hidden;
+}
+
+.confetti-full span {
+  position: absolute;
+  top: -24px;
+  font-size: 1.4rem;
+  animation: confetti-drop linear forwards;
+}
+
+@keyframes confetti-drop {
+  from {
+    transform: translateY(-24px) rotate(0deg);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(104vh) rotate(720deg);
+    opacity: 0.9;
+  }
+}
+
+/* Alerta de lembrete: mesmo painel da Corrida da Meta, mas piscando (borda e
+   brilho coral pulsando) pra chamar atenção quando o horário chega. */
+.lembrete-piscando {
+  animation: lembrete-piscar 1s ease-in-out infinite;
+}
+
+@keyframes lembrete-piscar {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(255, 111, 94, 0);
+    border-color: var(--border);
+  }
+  50% {
+    box-shadow: 0 0 0 5px rgba(255, 111, 94, 0.55);
+    border-color: var(--coral);
   }
 }
 

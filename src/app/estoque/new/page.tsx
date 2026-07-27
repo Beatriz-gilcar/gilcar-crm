@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { Topbar } from '@/components/Topbar'
 import { ToggleGroup } from '@/components/ToggleGroup'
 import { createVeiculo } from '../actions'
+import { podeVerTudo } from '@/lib/membros'
 
 type ProfileSummary = { nome: string; cargo: string; unidade_id: string | null }
 type Unidade = { id: string; nome: string }
@@ -27,8 +28,7 @@ export default async function NewVeiculoPage({
     .select('nome, cargo, unidade_id')
     .eq('id', user.id)
     .single<ProfileSummary>()
-
-  const isGerencia = profile?.cargo === 'admin' || profile?.cargo === 'gerente'
+  const verTudo = podeVerTudo(profile?.cargo)
   const isAdmin = profile?.cargo === 'admin'
 
   let unidades: Unidade[] = []
@@ -42,7 +42,7 @@ export default async function NewVeiculoPage({
       <Topbar
         nome={profile?.nome ?? user.email ?? ''}
         cargo={profile?.cargo ?? ''}
-        isGerencia={isGerencia}
+        verTudo={verTudo}
         isAdmin={isAdmin}
         active="estoque"
       />

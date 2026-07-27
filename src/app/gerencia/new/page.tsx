@@ -6,6 +6,7 @@ import { ToggleGroup } from '@/components/ToggleGroup'
 import { ChecklistFormClient } from '@/components/ChecklistFormClient'
 import { tipoLabel, perguntasPorTipo } from '@/lib/checklists'
 import { createChecklist } from '../actions'
+import { podeVerTudo } from '@/lib/membros'
 
 type ProfileSummary = { nome: string; cargo: string; unidade_id: string | null }
 type Gerente = { id: string; nome: string }
@@ -35,11 +36,10 @@ export default async function NewChecklistPage({
     .select('nome, cargo, unidade_id')
     .eq('id', user.id)
     .single<ProfileSummary>()
-
-  const isGerencia = profile?.cargo === 'admin' || profile?.cargo === 'gerente'
+  const verTudo = podeVerTudo(profile?.cargo)
   const isAdmin = profile?.cargo === 'admin'
 
-  if (!isGerencia) {
+  if (!verTudo) {
     redirect('/')
   }
 
@@ -56,9 +56,9 @@ export default async function NewChecklistPage({
       <Topbar
         nome={profile?.nome ?? user.email ?? ''}
         cargo={profile?.cargo ?? ''}
-        isGerencia={isGerencia}
+        verTudo={verTudo}
         isAdmin={isAdmin}
-        active="gerencia"
+        active="status-do-dia"
       />
       <div className="flex flex-1 justify-center px-4 py-8">
         <div className="w-full max-w-2xl">

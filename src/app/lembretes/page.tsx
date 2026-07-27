@@ -1,15 +1,16 @@
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { Topbar } from '@/components/Topbar'
-import { toggleLembrete } from './actions'
+import { toggleLembrete, deleteLembrete } from './actions'
+import { ConfirmButton } from '@/components/ConfirmButton'
+import { dataHoraBR } from '@/lib/datas'
+import { podeVerTudo } from '@/lib/membros'
 
 type LembreteRow = {
   id: string
   titulo: string
   data_vencimento: string | null
   concluido: boolean
-  cliente_id: string | null
-  categorias: { nome: string; cor: string | null } | null
   clientes: { nome: string } | null
 }
 
@@ -31,15 +32,12 @@ export default async function LembretesPage() {
     .select('nome, cargo')
     .eq('id', user.id)
     .single<ProfileSummary>()
-
-  const isGerencia = profile?.cargo === 'admin' || profile?.cargo === 'gerente'
+  const verTudo = podeVerTudo(profile?.cargo)
   const isAdmin = profile?.cargo === 'admin'
 
   const { data: lembretes } = await supabase
     .from('lembretes')
-    .select(
-      'id, titulo, data_vencimento, concluido, cliente_id, categorias(nome, cor), clientes(nome)'
-    )
+    .select('id, titulo, data_vencimento, concluido, clientes(nome)')
     .order('concluido', { ascending: true })
     .order('data_vencimento', { ascending: true, nullsFirst: false })
     .overrideTypes<LembreteRow[]>()
@@ -55,7 +53,7 @@ export default async function LembretesPage() {
       <Topbar
         nome={profile?.nome ?? user.email ?? ''}
         cargo={profile?.cargo ?? ''}
-        isGerencia={isGerencia}
+        verTudo={verTudo}
         isAdmin={isAdmin}
         active="lembretes"
       />
@@ -93,9 +91,6 @@ export default async function LembretesPage() {
                     <form action={toggleLembrete}>
                       <input type="hidden" name="id" value={lembrete.id} />
                       <input type="hidden" name="concluido" value={String(lembrete.concluido)} />
-                      {lembrete.cliente_id && (
-                        <input type="hidden" name="cliente_id" value={lembrete.cliente_id} />
-                      )}
                       <button
                         type="submit"
                         aria-label={lembrete.concluido ? 'Reabrir lembrete' : 'Concluir lembrete'}
@@ -118,24 +113,20 @@ export default async function LembretesPage() {
                         {lembrete.titulo}
                       </p>
                       <p className="text-[.75rem] text-[var(--text-muted)]">
-                        {lembrete.categorias && (
-                          <span className="mr-2 inline-flex items-center gap-1">
-                            <span
-                              className="h-2 w-2 rounded-full"
-                              style={{ backgroundColor: lembrete.categorias.cor ?? '#71717a' }}
-                            />
-                            {lembrete.categorias.nome}
-                          </span>
-                        )}
-                        {lembrete.clientes?.nome && (
-                          <Link href={`/leads/${lembrete.cliente_id}`} className="hover:underline">
-                            {lembrete.clientes.nome}
-                          </Link>
-                        )}
-                        {lembrete.data_vencimento &&
-                          ` · vence ${new Date(lembrete.data_vencimento).toLocaleDateString('pt-BR')}`}
+                        {lembrete.clientes?.nome}
+                        {lembrete.data_vencimento && ` · 🔔 ${dataHoraBR(lembrete.data_vencimento)}`}
                       </p>
                     </div>
+
+                    <form action={deleteLembrete}>
+                      <input type="hidden" name="id" value={lembrete.id} />
+                      <ConfirmButton
+                        className="text-[.72rem] font-bold text-[var(--danger)] hover:underline"
+                        confirmMessage={`Excluir o lembrete "${lembrete.titulo}"?`}
+                      >
+                        Excluir
+                      </ConfirmButton>
+                    </form>
                   </li>
                 ))}
               </ul>

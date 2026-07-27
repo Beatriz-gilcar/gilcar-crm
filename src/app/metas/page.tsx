@@ -3,9 +3,9 @@ import { createClient } from '@/lib/supabase/server'
 import { Topbar } from '@/components/Topbar'
 import { MetaWidget } from '@/components/MetaWidget'
 import { ConfirmButton } from '@/components/ConfirmButton'
-import { formatBRL } from '@/lib/ordens'
 import { statusLabel, statusBadgeClass, mesAtualISO, mesRange } from '@/lib/metas'
 import { toggleVendaStatus, deleteVenda } from './actions'
+import { isGerenciaCargo, podeVerTudo, isSomenteLeitura } from '@/lib/membros'
 
 type Venda = {
   id: string
@@ -49,11 +49,18 @@ export default async function MetasPage({
     .eq('id', user.id)
     .single<ProfileSummary>()
 
-  const isGerencia = profile?.cargo === 'admin' || profile?.cargo === 'gerente'
+  const isGerencia = isGerenciaCargo(profile?.cargo)
+  const verTudo = podeVerTudo(profile?.cargo)
   const isAdmin = profile?.cargo === 'admin'
+  // Gerente/supervisor vê só a própria unidade; admin/CEO veem a empresa toda.
+  const veTudoUnidades = isAdmin || isSomenteLeitura(profile?.cargo)
+  const unidadeGerente = !veTudoUnidades && isGerencia ? profile?.unidade_id ?? null : null
 
   const { inicio, fim } = mesRange(mes)
 
+  // Busca a empresa toda: a corrida (barras por unidade) mostra todas as lojas
+  // pra todo mundo. Só a LISTA de nomes abaixo é que fica restrita à unidade do
+  // gerente (via vendasLista). Consultor já vê só as próprias pelo RLS.
   const { data: vendasData } = await supabase
     .from('vendas')
     .select(
@@ -61,10 +68,14 @@ export default async function MetasPage({
     )
     .gte('data', inicio)
     .lt('data', fim)
-    .order('numero_sequencial', { ascending: false })
+    // Ordem manual da lista (tela "Editar lista"); fallback pelo sequencial.
+    .order('posicao', { ascending: true, nullsFirst: false })
+    .order('numero_sequencial', { ascending: true })
     .overrideTypes<Venda[]>()
 
   const vendas = vendasData ?? []
+  // Lista de nomes: gerente só vê a da própria unidade; admin/CEO veem tudo.
+  const vendasLista = unidadeGerente ? vendas.filter((v) => v.unidade_id === unidadeGerente) : vendas
 
   const { data: metasData } = await supabase
     .from('metas')
@@ -83,19 +94,22 @@ export default async function MetasPage({
   const { data: unidadesData } = await supabase.from('unidades').select('id, nome').order('nome')
   const unidades = (unidadesData ?? []) as Unidade[]
 
-  const realizadoTotal = vendas.length
+  // Só vendas ATIVAS contam pra meta — caída não conta. A lista abaixo continua
+  // mostrando todas (inclusive as caídas, riscadas); só o realizado as ignora.
+  const vendasAtivas = vendas.filter((v) => v.status === 'ativa')
+  const realizadoTotal = vendasAtivas.length
   const realizadoPorUnidade = new Map<string, number>()
-  for (const v of vendas) {
+  for (const v of vendasAtivas) {
     realizadoPorUnidade.set(v.unidade_id, (realizadoPorUnidade.get(v.unidade_id) ?? 0) + 1)
   }
-  const realizadoConsultor = vendas.filter((v) => v.consultor_id === user.id).length
+  const realizadoConsultor = vendasAtivas.filter((v) => v.consultor_id === user.id).length
 
   return (
     <>
       <Topbar
         nome={profile?.nome ?? user.email ?? ''}
         cargo={profile?.cargo ?? ''}
-        isGerencia={isGerencia}
+        verTudo={verTudo}
         isAdmin={isAdmin}
         active="metas"
       />
@@ -120,9 +134,11 @@ export default async function MetasPage({
                   Definir metas
                 </Link>
               )}
-              <Link href="/metas/new" className="btn btn-red btn-sm">
-                + Lançar venda
-              </Link>
+              {isAdmin && (
+                <Link href={`/metas/editar?mes=${mes}`} className="btn btn-outline btn-sm">
+                  Editar lista
+                </Link>
+              )}
             </div>
           </div>
 
@@ -170,11 +186,16 @@ export default async function MetasPage({
           </div>
 
           <div className="sec-body mt-6" style={{ padding: 0 }}>
-            {vendas.length === 0 ? (
+            {vendasLista.length === 0 ? (
               <div className="empty-state">Nenhuma venda lançada em {mes}.</div>
             ) : (
               <div className="flex flex-col">
-                {vendas.map((v) => (
+                {vendasLista.map((v, i) => {
+                  // Numeração 1..N dentro do mês (como a "lista de vendas do mês"
+                  // do sistema antigo), não o numero_sequencial global do banco.
+                  // A lista agora vem em ordem crescente, então a primeira é a #1.
+                  const numeroNoMes = i + 1
+                  return (
                   <div
                     key={v.id}
                     className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border)] px-4 py-3 first:border-t-0"
@@ -182,31 +203,32 @@ export default async function MetasPage({
                     <div>
                       <p className="normal-case text-white">
                         <span className="mr-2 text-[.68rem] text-[var(--text-muted)]">
-                          #{v.numero_sequencial}
+                          #{numeroNoMes}
                         </span>
                         {v.veiculo_marca} {v.veiculo_modelo}
                         {v.veiculo_placa ? ` · ${v.veiculo_placa}` : ''}
                       </p>
-                      <p className="text-[.72rem] normal-case text-[var(--text-muted)]">
-                        {v.profiles?.nome ?? '—'} · {v.unidades?.nome ?? '—'} ·{' '}
-                        {new Date(`${v.data}T12:00:00`).toLocaleDateString('pt-BR')} · {formatBRL(v.valor)}
+                      <p className="text-[.78rem] normal-case font-semibold text-white">
+                        {v.profiles?.nome ?? '—'}
                       </p>
                     </div>
                     <div className="flex items-center gap-3">
                       <span className={`badge ${statusBadgeClass[v.status]}`}>{statusLabel[v.status]}</span>
-                      <form action={toggleVendaStatus}>
-                        <input type="hidden" name="id" value={v.id} />
-                        <input type="hidden" name="status_atual" value={v.status} />
-                        <button type="submit" className="text-[.72rem] font-bold text-[var(--text-muted)] hover:text-white">
-                          {v.status === 'ativa' ? 'Marcar caída' : 'Reativar'}
-                        </button>
-                      </form>
-                      {isGerencia && (
+                      {isAdmin && (
+                        <form action={toggleVendaStatus}>
+                          <input type="hidden" name="id" value={v.id} />
+                          <input type="hidden" name="status_atual" value={v.status} />
+                          <button type="submit" className="text-[.72rem] font-bold text-[var(--text-muted)] hover:text-white">
+                            {v.status === 'ativa' ? 'Marcar caída' : 'Reativar'}
+                          </button>
+                        </form>
+                      )}
+                      {isAdmin && (
                         <form action={deleteVenda}>
                           <input type="hidden" name="id" value={v.id} />
                           <ConfirmButton
                             className="text-[.72rem] font-bold text-[var(--danger)] hover:underline"
-                            confirmMessage={`Excluir a venda #${v.numero_sequencial} definitivamente? Use só pra corrigir erro de digitação.`}
+                            confirmMessage={`Excluir a venda #${numeroNoMes} definitivamente? Use só pra corrigir erro de digitação.`}
                           >
                             Excluir
                           </ConfirmButton>
@@ -214,10 +236,19 @@ export default async function MetasPage({
                       )}
                     </div>
                   </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </div>
+
+          {isAdmin && (
+            <div className="mt-6 flex justify-center">
+              <Link href="/metas/new" className="btn btn-red">
+                + Lançar venda
+              </Link>
+            </div>
+          )}
         </div>
       </div>
     </>

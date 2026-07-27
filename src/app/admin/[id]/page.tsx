@@ -4,12 +4,20 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { Topbar } from '@/components/Topbar'
 import { ToggleGroup } from '@/components/ToggleGroup'
+import { TelefoneInput } from '@/components/TelefoneInput'
 import { cargoLabel } from '@/lib/membros'
 import { updateMembro, resetSenha } from '../actions'
 
 type ProfileSummary = { nome: string; cargo: string }
 type Unidade = { id: string; nome: string }
-type MembroDetail = { id: string; nome: string; cargo: string; unidade_id: string | null }
+type MembroDetail = {
+  id: string
+  nome: string
+  cargo: string
+  unidade_id: string | null
+  gerente_responsavel: string | null
+  telefone: string | null
+}
 
 export default async function EditMembroPage({
   params,
@@ -42,7 +50,7 @@ export default async function EditMembroPage({
 
   const { data: membro } = await supabase
     .from('profiles')
-    .select('id, nome, cargo, unidade_id')
+    .select('id, nome, cargo, unidade_id, gerente_responsavel, telefone')
     .eq('id', id)
     .single<MembroDetail>()
 
@@ -59,7 +67,7 @@ export default async function EditMembroPage({
 
   return (
     <>
-      <Topbar nome={profile?.nome ?? user.email ?? ''} cargo={profile?.cargo ?? ''} isGerencia isAdmin active="admin" />
+      <Topbar nome={profile?.nome ?? user.email ?? ''} cargo={profile?.cargo ?? ''} verTudo isAdmin active="admin" />
       <div className="flex flex-1 justify-center px-4 py-8">
         <div className="w-full max-w-lg flex flex-col gap-4">
           <Link href="/admin" className="text-[.72rem] text-[var(--text-muted)] hover:text-white">
@@ -108,16 +116,35 @@ export default async function EditMembroPage({
                 />
               </div>
 
+              <div className="grid2">
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label>Unidade</label>
+                  <select name="unidade_id" defaultValue={membro.unidade_id ?? ''}>
+                    <option value="">Todas</option>
+                    {unidades.map((unidade) => (
+                      <option key={unidade.id} value={unidade.id}>
+                        {unidade.nome}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label>Gerente responsável</label>
+                  <input
+                    name="gerente_responsavel"
+                    type="text"
+                    defaultValue={membro.gerente_responsavel ?? ''}
+                  />
+                </div>
+              </div>
+
               <div className="form-group" style={{ marginBottom: 0 }}>
-                <label>Unidade</label>
-                <select name="unidade_id" defaultValue={membro.unidade_id ?? ''}>
-                  <option value="">Nenhuma (admin geral)</option>
-                  {unidades.map((unidade) => (
-                    <option key={unidade.id} value={unidade.id}>
-                      {unidade.nome}
-                    </option>
-                  ))}
-                </select>
+                <label>WhatsApp</label>
+                <TelefoneInput name="telefone" defaultValue={membro.telefone ?? ''} />
+                <p className="mt-1 text-[.68rem] normal-case text-[var(--text-muted)]">
+                  Usado para avisar sobre ficha e lembretes. Sem número, a pessoa não recebe nada.
+                </p>
               </div>
 
               <button type="submit" className="btn btn-red mt-1 self-start">

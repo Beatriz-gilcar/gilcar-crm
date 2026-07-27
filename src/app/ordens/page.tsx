@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { Topbar } from '@/components/Topbar'
 import { ToggleGroup } from '@/components/ToggleGroup'
 import { tipoLabel, statusLabel, statusBadgeClass, formatBRL } from '@/lib/ordens'
+import { isGerenciaCargo, podeVerTudo, isSomenteLeitura } from '@/lib/membros'
 
 type Ordem = {
   id: string
@@ -18,7 +19,7 @@ type Ordem = {
   vendedor: { nome: string } | null
 }
 
-type ProfileSummary = { nome: string; cargo: string }
+type ProfileSummary = { nome: string; cargo: string; unidade_id: string | null }
 type Vendedor = { id: string; nome: string }
 
 export default async function OrdensPage({
@@ -39,16 +40,23 @@ export default async function OrdensPage({
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('nome, cargo')
+    .select('nome, cargo, unidade_id')
     .eq('id', user.id)
     .single<ProfileSummary>()
 
-  const isGerencia = profile?.cargo === 'admin' || profile?.cargo === 'gerente'
+  const isGerencia = isGerenciaCargo(profile?.cargo)
+  const verTudo = podeVerTudo(profile?.cargo)
   const isAdmin = profile?.cargo === 'admin'
+  // Gerente/supervisor vê só as ordens da própria unidade; admin/CEO/visualizador
+  // veem todas. O RLS deixa a gerência ver tudo, então o corte é aqui.
+  const veTudoUnidades = isAdmin || isSomenteLeitura(profile?.cargo)
+  const unidadeGerente = !veTudoUnidades && isGerencia ? profile?.unidade_id ?? null : null
 
   let vendedores: Vendedor[] = []
   if (isGerencia) {
-    const { data } = await supabase.from('profiles').select('id, nome').order('nome')
+    let vendQuery = supabase.from('profiles').select('id, nome').order('nome')
+    if (unidadeGerente) vendQuery = vendQuery.eq('unidade_id', unidadeGerente)
+    const { data } = await vendQuery
     vendedores = data ?? []
   }
 
@@ -59,6 +67,7 @@ export default async function OrdensPage({
     )
     .order('data_venda', { ascending: false })
 
+  if (unidadeGerente) query = query.eq('unidade_id', unidadeGerente)
   if (status) query = query.eq('status', status)
   if (data_de) query = query.gte('data_venda', data_de)
   if (data_ate) query = query.lte('data_venda', data_ate)
@@ -71,10 +80,22 @@ export default async function OrdensPage({
   const { data: ordensData } = await query.overrideTypes<Ordem[]>()
   const ordens = ordensData ?? []
 
+  // KPIs no mesmo escopo da lista: gerente conta só a própria unidade.
+  const totalQuery = supabase.from('ordens_servico').select('*', { count: 'exact', head: true })
+  const pendentesQuery = supabase
+    .from('ordens_servico')
+    .select('*', { count: 'exact', head: true })
+    .eq('status', 'pendente')
+  const valoresQuery = supabase.from('ordens_servico').select('falta_receber').eq('status', 'pendente')
+  if (unidadeGerente) {
+    totalQuery.eq('unidade_id', unidadeGerente)
+    pendentesQuery.eq('unidade_id', unidadeGerente)
+    valoresQuery.eq('unidade_id', unidadeGerente)
+  }
   const [{ count: total }, { count: pendentes }, { data: pendentesValores }] = await Promise.all([
-    supabase.from('ordens_servico').select('*', { count: 'exact', head: true }),
-    supabase.from('ordens_servico').select('*', { count: 'exact', head: true }).eq('status', 'pendente'),
-    supabase.from('ordens_servico').select('falta_receber').eq('status', 'pendente'),
+    totalQuery,
+    pendentesQuery,
+    valoresQuery,
   ])
   const faltaReceberPendente = (pendentesValores ?? []).reduce(
     (acc, o) => acc + (o.falta_receber ?? 0),
@@ -86,7 +107,7 @@ export default async function OrdensPage({
       <Topbar
         nome={profile?.nome ?? user.email ?? ''}
         cargo={profile?.cargo ?? ''}
-        isGerencia={isGerencia}
+        verTudo={verTudo}
         isAdmin={isAdmin}
         active="ordens"
       />

@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { Topbar } from '@/components/Topbar'
 import { createVendaProtecao } from '../../actions'
+import { isGerenciaCargo, podeVerTudo } from '@/lib/membros'
 
 type ProfileSummary = { nome: string; cargo: string; unidade_id: string | null }
 type Unidade = { id: string; nome: string }
@@ -32,7 +33,8 @@ export default async function NewVendaProtecaoPage({
     .eq('id', user.id)
     .single<ProfileSummary>()
 
-  const isGerencia = profile?.cargo === 'admin' || profile?.cargo === 'gerente'
+  const isGerencia = isGerenciaCargo(profile?.cargo)
+  const verTudo = podeVerTudo(profile?.cargo)
   const isAdmin = profile?.cargo === 'admin'
 
   let unidades: Unidade[] = []
@@ -53,7 +55,7 @@ export default async function NewVendaProtecaoPage({
       <Topbar
         nome={profile?.nome ?? user.email ?? ''}
         cargo={profile?.cargo ?? ''}
-        isGerencia={isGerencia}
+        verTudo={verTudo}
         isAdmin={isAdmin}
         active="metas"
       />
@@ -108,13 +110,20 @@ export default async function NewVendaProtecaoPage({
             )}
 
             <div className="form-group" style={{ marginBottom: 0 }}>
-              <label>Descrição</label>
-              <input name="descricao" type="text" placeholder="Ex: Seguro veicular, Proteção premium" required />
+              <label>Placa do veículo</label>
+              <input name="placa" type="text" placeholder="ABC-1234" />
             </div>
 
             <div className="form-group" style={{ marginBottom: 0 }}>
-              <label>Valor</label>
-              <input name="valor" type="number" step="0.01" min="0" required />
+              <label>Nome do cliente</label>
+              <input name="cliente" type="text" placeholder="Nome completo" required />
+            </div>
+
+            {/* min=0 e não min=0.01: no antigo há proteção lançada a R$ 0,00, e
+                ela conta como 1 seguro na meta igual às outras. */}
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label>Valor da proteção (R$)</label>
+              <input name="valor" type="number" step="0.01" min="0" defaultValue="0" required />
             </div>
 
             <div className="form-group" style={{ marginBottom: 0 }}>

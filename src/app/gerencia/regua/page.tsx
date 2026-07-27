@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { Topbar } from '@/components/Topbar'
+import { podeVerTudo } from '@/lib/membros'
 
 type ProfileSummary = { nome: string; cargo: string }
 
@@ -43,11 +44,10 @@ export default async function ReguaDecisaoPage() {
     .select('nome, cargo')
     .eq('id', user.id)
     .single<ProfileSummary>()
-
-  const isGerencia = profile?.cargo === 'admin' || profile?.cargo === 'gerente'
+  const verTudo = podeVerTudo(profile?.cargo)
   const isAdmin = profile?.cargo === 'admin'
 
-  if (!isGerencia) {
+  if (!verTudo) {
     redirect('/')
   }
 
@@ -56,9 +56,9 @@ export default async function ReguaDecisaoPage() {
       <Topbar
         nome={profile?.nome ?? user.email ?? ''}
         cargo={profile?.cargo ?? ''}
-        isGerencia={isGerencia}
+        verTudo={verTudo}
         isAdmin={isAdmin}
-        active="gerencia"
+        active="status-do-dia"
       />
       <div className="flex flex-1 flex-col gap-4 px-4 py-8 sm:px-10">
         <div className="mx-auto w-full max-w-4xl">

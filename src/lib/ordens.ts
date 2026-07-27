@@ -25,6 +25,24 @@ export const formaPagamentoLabel: Record<string, string> = {
   transferencia: 'Transferência',
 }
 
+// Bancos/financeiras usados no financiamento. Vira as opções do dropdown do
+// campo "Financeira". A lista é sugestão (datalist), não trava: financeira
+// rara ainda pode ser digitada à mão, sem virar cadastro novo.
+export const bancos: string[] = [
+  'BV',
+  'Santander',
+  'Itaú',
+  'Bradesco',
+  'Safra',
+  'Creditas',
+  'Panamericano',
+  'BRB',
+  'C6',
+  'Omni',
+  'Carbank',
+  'Casa 8',
+]
+
 export function formatBRL(valor: number): string {
   return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }

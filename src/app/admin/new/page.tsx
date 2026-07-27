@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { Topbar } from '@/components/Topbar'
 import { ToggleGroup } from '@/components/ToggleGroup'
 import { cargoLabel } from '@/lib/membros'
+import { TelefoneInput } from '@/components/TelefoneInput'
 import { createMembro } from '../actions'
 
 type ProfileSummary = { nome: string; cargo: string }
@@ -39,7 +40,7 @@ export default async function NewMembroPage({
 
   return (
     <>
-      <Topbar nome={profile?.nome ?? user.email ?? ''} cargo={profile?.cargo ?? ''} isGerencia isAdmin active="admin" />
+      <Topbar nome={profile?.nome ?? user.email ?? ''} cargo={profile?.cargo ?? ''} verTudo isAdmin active="admin" />
       <div className="flex flex-1 justify-center px-4 py-8">
         <form action={createMembro} className="w-full max-w-lg">
           <div className="sec-header">
@@ -77,16 +78,31 @@ export default async function NewMembroPage({
               />
             </div>
 
+            <div className="grid2">
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label>Unidade</label>
+                <select name="unidade_id" defaultValue="">
+                  <option value="">Todas</option>
+                  {unidades.map((unidade) => (
+                    <option key={unidade.id} value={unidade.id}>
+                      {unidade.nome}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label>Gerente responsável</label>
+                <input name="gerente_responsavel" type="text" />
+              </div>
+            </div>
+
             <div className="form-group" style={{ marginBottom: 0 }}>
-              <label>Unidade</label>
-              <select name="unidade_id" defaultValue="">
-                <option value="">Nenhuma (admin geral)</option>
-                {unidades.map((unidade) => (
-                  <option key={unidade.id} value={unidade.id}>
-                    {unidade.nome}
-                  </option>
-                ))}
-              </select>
+              <label>WhatsApp</label>
+              <TelefoneInput name="telefone" />
+              <p className="mt-1 text-[.68rem] normal-case text-[var(--text-muted)]">
+                Usado para avisar sobre ficha e lembretes. Sem número, a pessoa não recebe nada.
+              </p>
             </div>
 
             <p className="text-[.7rem] normal-case text-[var(--text-muted)]">
