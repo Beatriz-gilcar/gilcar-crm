@@ -4,7 +4,7 @@ import { Topbar } from '@/components/Topbar'
 import { MetaWidget } from '@/components/MetaWidget'
 import { ConfirmButton } from '@/components/ConfirmButton'
 import { statusLabel, statusBadgeClass, mesAtualISO, mesRange } from '@/lib/metas'
-import { toggleVendaStatus, deleteVenda } from './actions'
+import { toggleVendaStatus, toggleVendaAutocerto, deleteVenda } from './actions'
 import { isGerenciaCargo, podeVerTudo, isSomenteLeitura } from '@/lib/membros'
 
 type Venda = {
@@ -18,6 +18,7 @@ type Venda = {
   valor: number
   data: string
   status: string
+  enviado_autocerto: boolean
   profiles: { nome: string } | null
   unidades: { nome: string } | null
 }
@@ -64,7 +65,7 @@ export default async function MetasPage({
   const { data: vendasData } = await supabase
     .from('vendas')
     .select(
-      'id, numero_sequencial, consultor_id, unidade_id, veiculo_marca, veiculo_modelo, veiculo_placa, valor, data, status, profiles(nome), unidades(nome)'
+      'id, numero_sequencial, consultor_id, unidade_id, veiculo_marca, veiculo_modelo, veiculo_placa, valor, data, status, enviado_autocerto, profiles(nome), unidades(nome)'
     )
     .gte('data', inicio)
     .lt('data', fim)
@@ -103,6 +104,15 @@ export default async function MetasPage({
     realizadoPorUnidade.set(v.unidade_id, (realizadoPorUnidade.get(v.unidade_id) ?? 0) + 1)
   }
   const realizadoConsultor = vendasAtivas.filter((v) => v.consultor_id === user.id).length
+
+  // Autocerto: quantas vendas ATIVAS da lista visível ainda não foram
+  // registradas lá fora. Só conta ativa — venda caída não precisa subir.
+  const pendentesAutocerto = vendasLista.filter((v) => v.status === 'ativa' && !v.enviado_autocerto)
+  const pendentesPorConsultor = new Map<string, number>()
+  for (const v of pendentesAutocerto) {
+    const nome = v.profiles?.nome ?? '—'
+    pendentesPorConsultor.set(nome, (pendentesPorConsultor.get(nome) ?? 0) + 1)
+  }
 
   return (
     <>
@@ -185,6 +195,22 @@ export default async function MetasPage({
             )}
           </div>
 
+          {isGerencia && pendentesAutocerto.length > 0 && (
+            <div className="mt-4 rounded-2xl border border-[var(--warning)] bg-[var(--warning-soft)] px-4 py-3">
+              <p className="text-[.72rem] font-bold uppercase tracking-wide text-[var(--warning)]">
+                {pendentesAutocerto.length} {pendentesAutocerto.length === 1 ? 'venda' : 'vendas'} ainda não{' '}
+                {pendentesAutocerto.length === 1 ? 'subiu' : 'subiram'} no Autocerto
+              </p>
+              <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[.75rem] normal-case text-white">
+                {[...pendentesPorConsultor.entries()].map(([nome, qtd]) => (
+                  <span key={nome}>
+                    <span className="font-semibold">{nome}</span>: {qtd}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="sec-body mt-6" style={{ padding: 0 }}>
             {vendasLista.length === 0 ? (
               <div className="empty-state">Nenhuma venda lançada em {mes}.</div>
@@ -214,6 +240,20 @@ export default async function MetasPage({
                     </div>
                     <div className="flex items-center gap-3">
                       <span className={`badge ${statusBadgeClass[v.status]}`}>{statusLabel[v.status]}</span>
+                      {v.status === 'ativa' && (
+                        <span className={`badge ${v.enviado_autocerto ? 'badge-aprovado' : 'badge-pendente'}`}>
+                          {v.enviado_autocerto ? 'No Autocerto' : 'Falta Autocerto'}
+                        </span>
+                      )}
+                      {isGerencia && v.status === 'ativa' && (
+                        <form action={toggleVendaAutocerto}>
+                          <input type="hidden" name="id" value={v.id} />
+                          <input type="hidden" name="enviado_atual" value={v.enviado_autocerto ? '1' : '0'} />
+                          <button type="submit" className="text-[.72rem] font-bold text-[var(--text-muted)] hover:text-white">
+                            {v.enviado_autocerto ? 'Desmarcar' : 'Marcar Autocerto'}
+                          </button>
+                        </form>
+                      )}
                       {isAdmin && (
                         <form action={toggleVendaStatus}>
                           <input type="hidden" name="id" value={v.id} />

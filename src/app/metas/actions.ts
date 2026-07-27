@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { mesRange } from '@/lib/metas'
+import { isGerenciaCargo } from '@/lib/membros'
 
 type SupaClient = Awaited<ReturnType<typeof createClient>>
 
@@ -22,6 +23,25 @@ async function soAdmin(supabase: SupaClient) {
     .single<{ cargo: string }>()
   if (p?.cargo !== 'admin') {
     redirect(`/metas?error=${encodeURIComponent('Só o admin pode lançar venda ou editar a lista')}`)
+  }
+  return user
+}
+
+// Marcar "enviado no Autocerto" é mais leve que editar a venda em si: admin
+// e gerência (gerente/supervisor) podem, pra não depender só do admin pra
+// manter isso em dia.
+async function soGerencia(supabase: SupaClient) {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+  const { data: p } = await supabase
+    .from('profiles')
+    .select('cargo')
+    .eq('id', user.id)
+    .single<{ cargo: string }>()
+  if (!isGerenciaCargo(p?.cargo)) {
+    redirect(`/metas?error=${encodeURIComponent('Só admin ou gerência marcam o Autocerto')}`)
   }
   return user
 }
@@ -159,6 +179,22 @@ export async function toggleVendaStatus(formData: FormData) {
 
   if (error) {
     redirect(`/metas?error=${encodeURIComponent('Não foi possível atualizar o status')}`)
+  }
+
+  revalidatePath('/metas')
+  redirect('/metas')
+}
+
+export async function toggleVendaAutocerto(formData: FormData) {
+  const supabase = await createClient()
+  await soGerencia(supabase)
+  const id = formData.get('id') as string
+  const enviadoAtual = formData.get('enviado_atual') === '1'
+
+  const { error } = await supabase.from('vendas').update({ enviado_autocerto: !enviadoAtual }).eq('id', id)
+
+  if (error) {
+    redirect(`/metas?error=${encodeURIComponent('Não foi possível atualizar o Autocerto')}`)
   }
 
   revalidatePath('/metas')
