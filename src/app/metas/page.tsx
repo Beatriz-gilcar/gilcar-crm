@@ -2,8 +2,8 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { Topbar } from '@/components/Topbar'
 import { MetaWidget } from '@/components/MetaWidget'
-import { ConfirmButton } from '@/components/ConfirmButton'
-import { statusLabel, statusBadgeClass, mesAtualISO, mesRange } from '@/lib/metas'
+import { VendasLista } from '@/components/VendasLista'
+import { mesAtualISO, mesRange } from '@/lib/metas'
 import { toggleVendaStatus, toggleVendaAutocerto, deleteVenda } from './actions'
 import { isGerenciaCargo, podeVerTudo, isSomenteLeitura } from '@/lib/membros'
 
@@ -211,76 +211,24 @@ export default async function MetasPage({
             </div>
           )}
 
-          <div className="sec-body mt-6" style={{ padding: 0 }}>
-            {vendasLista.length === 0 ? (
-              <div className="empty-state">Nenhuma venda lançada em {mes}.</div>
-            ) : (
-              <div className="flex flex-col">
-                {vendasLista.map((v, i) => {
-                  // Numeração 1..N dentro do mês (como a "lista de vendas do mês"
-                  // do sistema antigo), não o numero_sequencial global do banco.
-                  // A lista agora vem em ordem crescente, então a primeira é a #1.
-                  const numeroNoMes = i + 1
-                  return (
-                  <div
-                    key={v.id}
-                    className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border)] px-4 py-3 first:border-t-0"
-                  >
-                    <div>
-                      <p className="normal-case text-white">
-                        <span className="mr-2 text-[.68rem] text-[var(--text-muted)]">
-                          #{numeroNoMes}
-                        </span>
-                        {v.veiculo_marca} {v.veiculo_modelo}
-                        {v.veiculo_placa ? ` · ${v.veiculo_placa}` : ''}
-                      </p>
-                      <p className="text-[.78rem] normal-case font-semibold text-white">
-                        {v.profiles?.nome ?? '—'}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span className={`badge ${statusBadgeClass[v.status]}`}>{statusLabel[v.status]}</span>
-                      {v.status === 'ativa' && (
-                        <span className={`badge ${v.enviado_autocerto ? 'badge-aprovado' : 'badge-pendente'}`}>
-                          {v.enviado_autocerto ? 'No Autocerto' : 'Falta Autocerto'}
-                        </span>
-                      )}
-                      {isGerencia && v.status === 'ativa' && (
-                        <form action={toggleVendaAutocerto}>
-                          <input type="hidden" name="id" value={v.id} />
-                          <input type="hidden" name="enviado_atual" value={v.enviado_autocerto ? '1' : '0'} />
-                          <button type="submit" className="text-[.72rem] font-bold text-[var(--text-muted)] hover:text-white">
-                            {v.enviado_autocerto ? 'Desmarcar' : 'Marcar Autocerto'}
-                          </button>
-                        </form>
-                      )}
-                      {isAdmin && (
-                        <form action={toggleVendaStatus}>
-                          <input type="hidden" name="id" value={v.id} />
-                          <input type="hidden" name="status_atual" value={v.status} />
-                          <button type="submit" className="text-[.72rem] font-bold text-[var(--text-muted)] hover:text-white">
-                            {v.status === 'ativa' ? 'Marcar caída' : 'Reativar'}
-                          </button>
-                        </form>
-                      )}
-                      {isAdmin && (
-                        <form action={deleteVenda}>
-                          <input type="hidden" name="id" value={v.id} />
-                          <ConfirmButton
-                            className="text-[.72rem] font-bold text-[var(--danger)] hover:underline"
-                            confirmMessage={`Excluir a venda #${numeroNoMes} definitivamente? Use só pra corrigir erro de digitação.`}
-                          >
-                            Excluir
-                          </ConfirmButton>
-                        </form>
-                      )}
-                    </div>
-                  </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
+          <VendasLista
+            vendas={vendasLista.map((v, i) => ({
+              id: v.id,
+              numero: i + 1,
+              veiculo_marca: v.veiculo_marca,
+              veiculo_modelo: v.veiculo_modelo,
+              veiculo_placa: v.veiculo_placa,
+              status: v.status,
+              enviado_autocerto: v.enviado_autocerto,
+              consultorNome: v.profiles?.nome ?? '—',
+            }))}
+            isAdmin={isAdmin}
+            isGerencia={isGerencia}
+            mes={mes}
+            toggleVendaStatus={toggleVendaStatus}
+            toggleVendaAutocerto={toggleVendaAutocerto}
+            deleteVenda={deleteVenda}
+          />
 
           {isAdmin && (
             <div className="mt-6 flex justify-center">
