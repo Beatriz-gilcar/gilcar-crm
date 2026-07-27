@@ -29,7 +29,9 @@ async function soAdmin(supabase: SupaClient) {
 
 // Marcar "enviado no Autocerto" é mais leve que editar a venda em si: admin
 // e gerência (gerente/supervisor) podem, pra não depender só do admin pra
-// manter isso em dia.
+// manter isso em dia. Mesma lógica de visibilidade do resto do sistema:
+// gerente/supervisor só mexe na própria unidade, só o admin (Junior) mexe em
+// qualquer uma.
 async function soGerencia(supabase: SupaClient) {
   const {
     data: { user },
@@ -37,13 +39,13 @@ async function soGerencia(supabase: SupaClient) {
   if (!user) redirect('/login')
   const { data: p } = await supabase
     .from('profiles')
-    .select('cargo')
+    .select('cargo, unidade_id')
     .eq('id', user.id)
-    .single<{ cargo: string }>()
+    .single<{ cargo: string; unidade_id: string | null }>()
   if (!isGerenciaCargo(p?.cargo)) {
     redirect(`/metas?error=${encodeURIComponent('Só admin ou gerência marcam o Autocerto')}`)
   }
-  return user
+  return { user, cargo: p?.cargo ?? null, unidade_id: p?.unidade_id ?? null }
 }
 
 type LinhaVenda = {
@@ -187,9 +189,21 @@ export async function toggleVendaStatus(formData: FormData) {
 
 export async function toggleVendaAutocerto(formData: FormData) {
   const supabase = await createClient()
-  await soGerencia(supabase)
+  const { cargo, unidade_id } = await soGerencia(supabase)
   const id = formData.get('id') as string
   const enviadoAtual = formData.get('enviado_atual') === '1'
+
+  // Admin (Junior) mexe em qualquer unidade; gerente/supervisor só na própria.
+  if (cargo !== 'admin') {
+    const { data: venda } = await supabase
+      .from('vendas')
+      .select('unidade_id')
+      .eq('id', id)
+      .single<{ unidade_id: string }>()
+    if (venda?.unidade_id !== unidade_id) {
+      redirect(`/metas?error=${encodeURIComponent('Você só marca o Autocerto de vendas da sua unidade')}`)
+    }
+  }
 
   const { error } = await supabase.from('vendas').update({ enviado_autocerto: !enviadoAtual }).eq('id', id)
 
