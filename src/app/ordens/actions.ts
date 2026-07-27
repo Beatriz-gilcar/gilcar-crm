@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { addBusinessDaysISO } from '@/lib/business-days'
 import { formaPagamentoLabel } from '@/lib/ordens'
 import { parseBRL } from '@/lib/mask'
@@ -254,6 +255,17 @@ export async function updateOrdem(formData: FormData) {
   redirect(`/ordens/${id}`)
 }
 
+type OrdemAprovadaResumo = {
+  tipo: string
+  cliente_nome: string
+  veiculo_marca: string
+  veiculo_modelo: string
+  veiculo_placa: string | null
+  unidade_id: string
+  manutencao: string | null
+  data_entrega: string | null
+}
+
 export async function aprovarOrdem(formData: FormData) {
   const supabase = await createClient()
   const id = formData.get('id') as string
@@ -262,17 +274,48 @@ export async function aprovarOrdem(formData: FormData) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const { error } = await supabase
+  const { data: ordem, error } = await supabase
     .from('ordens_servico')
     .update({ status: 'aprovada', aprovado_por: user?.id, aprovado_em: new Date().toISOString() })
     .eq('id', id)
+    .select('tipo, cliente_nome, veiculo_marca, veiculo_modelo, veiculo_placa, unidade_id, manutencao, data_entrega')
+    .single<OrdemAprovadaResumo>()
 
   if (error) {
     redirect(`/ordens/${id}?error=${encodeURIComponent('Não foi possível aprovar a ordem')}`)
   }
 
+  // Venda aprovada já nasce no Pós-venda sozinha, com a manutenção anotada
+  // pelo consultor virando o ponto de partida das anotações — a Luciana não
+  // precisa recriar o registro do zero pra cada venda. Usa o client admin
+  // (ignora RLS) porque só o cargo pos_venda pode escrever nessa tabela, e
+  // quem aprova aqui é gerência/admin.
+  if (ordem?.tipo === 'venda') {
+    const admin = createAdminClient()
+    const { data: existente } = await admin
+      .from('pos_venda')
+      .select('id')
+      .eq('ordem_id', id)
+      .maybeSingle<{ id: string }>()
+
+    if (!existente) {
+      await admin.from('pos_venda').insert({
+        ordem_id: id,
+        unidade_id: ordem.unidade_id,
+        cliente_nome: ordem.cliente_nome,
+        veiculo_marca: ordem.veiculo_marca,
+        veiculo_modelo: ordem.veiculo_modelo,
+        veiculo_placa: ordem.veiculo_placa,
+        status: 'aberto',
+        entrega_em: ordem.data_entrega,
+        anotacoes: ordem.manutencao,
+      })
+    }
+  }
+
   revalidatePath('/ordens')
   revalidatePath(`/ordens/${id}`)
+  revalidatePath('/pos-venda')
   redirect(`/ordens/${id}`)
 }
 
