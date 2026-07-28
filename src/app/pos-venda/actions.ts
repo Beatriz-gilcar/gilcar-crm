@@ -170,8 +170,11 @@ export async function atualizarItemPosVenda(formData: FormData) {
     redirect(`/pos-venda/${pos_venda_id}?error=${encodeURIComponent('Não foi possível salvar o item')}`)
   }
 
+  // Sem redirect no sucesso: essa action dispara sozinha a cada clique no
+  // checkbox (AutoSubmitCheckbox). Redirecionar pra mesma página toda vez
+  // forçava uma navegação completa e o check parecia "piscar e sumir".
+  // revalidatePath já atualiza os dados na tela sem recarregar tudo.
   revalidatePath(`/pos-venda/${pos_venda_id}`)
-  redirect(`/pos-venda/${pos_venda_id}`)
 }
 
 export async function excluirItemPosVenda(formData: FormData) {
