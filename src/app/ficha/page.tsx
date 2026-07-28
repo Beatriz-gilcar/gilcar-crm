@@ -7,7 +7,7 @@ import { TelefoneInput } from '@/components/TelefoneInput'
 import { origemPresencialLabel, origemDigitalLabel } from '@/lib/atendimentos'
 import { dataHoraBR } from '@/lib/datas'
 import { atividadeCampos, type AtividadeCampo } from '@/lib/atividades'
-import { podeVerTudo, isSomenteLeitura, isGerenciaCargo } from '@/lib/membros'
+import { podeVerTudo, isSomenteLeitura } from '@/lib/membros'
 import {
   registrarAtendimento,
   excluirAtendimento,
@@ -70,9 +70,10 @@ export default async function FichaPage({
   const verTudo = podeVerTudo(profile?.cargo)
   const isAdmin = profile?.cargo === 'admin'
   const soLeitura = isSomenteLeitura(profile?.cargo)
-  // Gerente/supervisor não preenche ficha — só pesquisa os atendimentos dos
-  // consultores da própria unidade.
-  const apenasBusca = isGerenciaCargo(profile?.cargo) && !isAdmin
+  // Só o gerente não preenche ficha — apenas pesquisa os atendimentos dos
+  // consultores da própria unidade. Supervisor preenche a própria ficha como
+  // um consultor (mantém a mesma tela de baixo).
+  const apenasBusca = profile?.cargo === 'gerente'
 
   const idsUnidade: string[] = []
   const nomePorConsultor = new Map<string, string>()
