@@ -161,13 +161,20 @@ export async function atualizarItemPosVenda(formData: FormData) {
   const feito = formData.get('feito') === 'on'
   const local = texto(formData, 'local')
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('pos_venda_itens')
     .update({ feito, local, updated_at: new Date().toISOString() })
     .eq('id', id)
+    .select('id')
 
   if (error) {
-    redirect(`/pos-venda/${pos_venda_id}?error=${encodeURIComponent('Não foi possível salvar o item')}`)
+    redirect(`/pos-venda/${pos_venda_id}?error=${encodeURIComponent('Erro: ' + error.message)}`)
+  }
+
+  // Update "bem-sucedido" mas sem linha afetada é sinal de RLS barrando
+  // silenciosamente — PostgREST não trata isso como erro.
+  if (!data || data.length === 0) {
+    redirect(`/pos-venda/${pos_venda_id}?error=${encodeURIComponent('Item não encontrado ou sem permissão para editar (0 linhas afetadas)')}`)
   }
 
   // Sem redirect no sucesso: essa action dispara sozinha a cada clique no
