@@ -130,7 +130,7 @@ export default async function PosVendaPage({
                     key={r.id}
                     className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border)] px-4 py-3 first:border-t-0"
                   >
-                    <div>
+                    <Link href={`/pos-venda/${r.id}`} className="hover:opacity-80">
                       <p className="font-semibold text-white">{r.cliente_nome}</p>
                       <p className="text-[.72rem] text-[var(--text-muted)]">
                         {r.veiculo_marca} {r.veiculo_modelo}
@@ -141,7 +141,7 @@ export default async function PosVendaPage({
                       <p className="text-[.68rem] text-[var(--text-muted)]">
                         Entrega: {dataBR(r.entrega_em)} · Revisão: {dataBR(r.revisao_em)}
                       </p>
-                    </div>
+                    </Link>
                     <div className="flex items-center gap-3">
                       <span className={`badge ${posVendaStatusBadgeClass[r.status]}`}>
                         {posVendaStatusLabel[r.status]}
