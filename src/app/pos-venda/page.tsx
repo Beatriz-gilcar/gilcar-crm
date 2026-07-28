@@ -2,8 +2,10 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { Topbar } from '@/components/Topbar'
 import { ToggleGroup } from '@/components/ToggleGroup'
+import { ConfirmButton } from '@/components/ConfirmButton'
 import { podeVerTudo, podeEditarPosVenda } from '@/lib/membros'
 import { posVendaStatusLabel, posVendaStatusBadgeClass } from '@/lib/pos_venda'
+import { deletePosVenda } from './actions'
 
 type PosVenda = {
   id: string
@@ -124,10 +126,9 @@ export default async function PosVendaPage({
             ) : (
               <div className="flex flex-col">
                 {registros.map((r) => (
-                  <Link
+                  <div
                     key={r.id}
-                    href={`/pos-venda/${r.id}`}
-                    className="flex items-center justify-between gap-4 border-t border-[var(--border)] px-4 py-3 first:border-t-0 hover:bg-white/[.03]"
+                    className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border)] px-4 py-3 first:border-t-0"
                   >
                     <div>
                       <p className="font-semibold text-white">{r.cliente_nome}</p>
@@ -141,10 +142,29 @@ export default async function PosVendaPage({
                         Entrega: {dataBR(r.entrega_em)} · Revisão: {dataBR(r.revisao_em)}
                       </p>
                     </div>
-                    <span className={`badge ${posVendaStatusBadgeClass[r.status]}`}>
-                      {posVendaStatusLabel[r.status]}
-                    </span>
-                  </Link>
+                    <div className="flex items-center gap-3">
+                      <span className={`badge ${posVendaStatusBadgeClass[r.status]}`}>
+                        {posVendaStatusLabel[r.status]}
+                      </span>
+                      <Link
+                        href={`/pos-venda/${r.id}`}
+                        className="text-[.72rem] font-bold text-[var(--text-muted)] hover:text-white"
+                      >
+                        {podeEditar ? 'Editar' : 'Ver'}
+                      </Link>
+                      {podeEditar && (
+                        <form action={deletePosVenda}>
+                          <input type="hidden" name="id" value={r.id} />
+                          <ConfirmButton
+                            className="text-[.72rem] font-bold text-[var(--danger)] hover:underline"
+                            confirmMessage={`Excluir o registro de pós-venda de ${r.cliente_nome} (${r.veiculo_marca} ${r.veiculo_modelo})?`}
+                          >
+                            Excluir
+                          </ConfirmButton>
+                        </form>
+                      )}
+                    </div>
+                  </div>
                 ))}
               </div>
             )}
