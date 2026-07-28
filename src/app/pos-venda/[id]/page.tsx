@@ -44,10 +44,10 @@ export default async function PosVendaDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>
-  searchParams: Promise<{ error?: string }>
+  searchParams: Promise<{ error?: string; success?: string }>
 }) {
   const { id } = await params
-  const { error } = await searchParams
+  const { error, success } = await searchParams
   const supabase = await createClient()
 
   const {
@@ -92,6 +92,55 @@ export default async function PosVendaDetailPage({
     .overrideTypes<ItemManutencao[]>()
 
   const itens = itensData ?? []
+  const pendentes = itens.filter((item) => !item.feito)
+  const concluidos = itens.filter((item) => item.feito)
+
+  function renderItem(item: ItemManutencao) {
+    return podeEditar ? (
+      <form
+        key={item.id}
+        action={atualizarItemPosVenda}
+        className="flex flex-wrap items-center gap-2 border-t border-[var(--border)] pt-3 first:border-t-0 first:pt-0"
+      >
+        <input type="hidden" name="id" value={item.id} />
+        <input type="hidden" name="pos_venda_id" value={registro!.id} />
+        <label className="flex flex-1 items-center gap-2 normal-case text-white">
+          <AutoSubmitCheckbox name="feito" defaultChecked={item.feito} />
+          {item.descricao}
+          {item.feito && <span className="badge badge-aprovado">✓ Feito</span>}
+        </label>
+        <input
+          name="local"
+          type="text"
+          defaultValue={item.local ?? ''}
+          placeholder="Local"
+          style={{ maxWidth: 140 }}
+        />
+        <button type="submit" name="acao" value="salvar_local" className="btn btn-outline btn-sm">
+          Salvar local
+        </button>
+        <button
+          type="submit"
+          formAction={excluirItemPosVenda}
+          className="text-[.72rem] font-bold text-[var(--danger)] hover:underline"
+        >
+          Excluir
+        </button>
+      </form>
+    ) : (
+      <div
+        key={item.id}
+        className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border)] pt-3 text-[.82rem] normal-case text-white first:border-t-0 first:pt-0"
+      >
+        <span className="flex items-center gap-2">
+          <input type="checkbox" checked={item.feito} disabled readOnly />
+          {item.descricao}
+          {item.feito && <span className="badge badge-aprovado">✓ Feito</span>}
+        </span>
+        <span className="text-[var(--text-muted)]">{item.local || '—'}</span>
+      </div>
+    )
+  }
 
   return (
     <>
@@ -136,6 +185,11 @@ export default async function PosVendaDetailPage({
               {error && (
                 <p className="rounded-md bg-[#1a0808] px-3 py-2 text-[.78rem] normal-case text-[var(--red)]">
                   {error}
+                </p>
+              )}
+              {success && (
+                <p className="rounded-md bg-[#081a0c] px-3 py-2 text-[.78rem] normal-case text-[var(--success)]">
+                  {success}
                 </p>
               )}
 
@@ -213,52 +267,22 @@ export default async function PosVendaDetailPage({
             {itens.length === 0 ? (
               <p className="text-[.78rem] normal-case text-[var(--text-muted)]">Nenhum serviço lançado.</p>
             ) : (
-              itens.map((item) =>
-                podeEditar ? (
-                  <form
-                    key={item.id}
-                    action={atualizarItemPosVenda}
-                    className="flex flex-wrap items-center gap-2 border-t border-[var(--border)] pt-3 first:border-t-0 first:pt-0"
-                  >
-                    <input type="hidden" name="id" value={item.id} />
-                    <input type="hidden" name="pos_venda_id" value={registro.id} />
-                    <label className="flex flex-1 items-center gap-2 normal-case text-white">
-                      <AutoSubmitCheckbox name="feito" defaultChecked={item.feito} />
-                      {item.descricao}
-                      {item.feito && <span className="badge badge-aprovado">✓ Feito</span>}
-                    </label>
-                    <input
-                      name="local"
-                      type="text"
-                      defaultValue={item.local ?? ''}
-                      placeholder="Local"
-                      style={{ maxWidth: 140 }}
-                    />
-                    <button type="submit" className="btn btn-outline btn-sm">
-                      Salvar local
-                    </button>
-                    <button
-                      type="submit"
-                      formAction={excluirItemPosVenda}
-                      className="text-[.72rem] font-bold text-[var(--danger)] hover:underline"
-                    >
-                      Excluir
-                    </button>
-                  </form>
+              <>
+                {pendentes.length === 0 ? (
+                  <p className="text-[.78rem] normal-case text-[var(--text-muted)]">Nenhum serviço pendente.</p>
                 ) : (
-                  <div
-                    key={item.id}
-                    className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border)] pt-3 text-[.82rem] normal-case text-white first:border-t-0 first:pt-0"
-                  >
-                    <span className="flex items-center gap-2">
-                      <input type="checkbox" checked={item.feito} disabled readOnly />
-                      {item.descricao}
-                      {item.feito && <span className="badge badge-aprovado">✓ Feito</span>}
+                  pendentes.map((item) => renderItem(item))
+                )}
+
+                {concluidos.length > 0 && (
+                  <div className="mt-2 flex flex-col gap-3 border-t border-[var(--border)] pt-3">
+                    <span className="text-[.68rem] font-bold uppercase tracking-wide text-[var(--text-muted)]">
+                      Concluídos
                     </span>
-                    <span className="text-[var(--text-muted)]">{item.local || '—'}</span>
+                    {concluidos.map((item) => renderItem(item))}
                   </div>
-                )
-              )
+                )}
+              </>
             )}
 
             {podeEditar && (

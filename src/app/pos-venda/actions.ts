@@ -160,6 +160,9 @@ export async function atualizarItemPosVenda(formData: FormData) {
   const pos_venda_id = formData.get('pos_venda_id') as string
   const feito = formData.get('feito') === 'on'
   const local = texto(formData, 'local')
+  // Só vem preenchido quando foi o botão "Salvar local" que disparou o
+  // submit — o auto-submit do checkbox não aciona nenhum botão.
+  const viaBotaoSalvarLocal = formData.get('acao') === 'salvar_local'
 
   const { data, error } = await supabase
     .from('pos_venda_itens')
@@ -177,8 +180,12 @@ export async function atualizarItemPosVenda(formData: FormData) {
     redirect(`/pos-venda/${pos_venda_id}?error=${encodeURIComponent('Item não encontrado ou sem permissão para editar (0 linhas afetadas)')}`)
   }
 
-  // Sem redirect no sucesso: essa action dispara sozinha a cada clique no
-  // checkbox (AutoSubmitCheckbox). Redirecionar pra mesma página toda vez
+  if (viaBotaoSalvarLocal) {
+    redirect(`/pos-venda/${pos_venda_id}?success=${encodeURIComponent('Local salvo')}`)
+  }
+
+  // Sem redirect no clique do checkbox: essa action dispara sozinha a cada
+  // clique (AutoSubmitCheckbox). Redirecionar pra mesma página toda vez
   // forçava uma navegação completa e o check parecia "piscar e sumir".
   // revalidatePath já atualiza os dados na tela sem recarregar tudo.
   revalidatePath(`/pos-venda/${pos_venda_id}`)
