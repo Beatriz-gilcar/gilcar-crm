@@ -181,14 +181,16 @@ export async function atualizarItemPosVenda(formData: FormData) {
   }
 
   if (viaBotaoSalvarLocal) {
+    revalidatePath(`/pos-venda/${pos_venda_id}`)
     redirect(`/pos-venda/${pos_venda_id}?success=${encodeURIComponent('Local salvo')}`)
   }
 
-  // Sem redirect no clique do checkbox: essa action dispara sozinha a cada
-  // clique (AutoSubmitCheckbox). Redirecionar pra mesma página toda vez
-  // forçava uma navegação completa e o check parecia "piscar e sumir".
-  // revalidatePath já atualiza os dados na tela sem recarregar tudo.
-  revalidatePath(`/pos-venda/${pos_venda_id}`)
+  // Sem revalidatePath/redirect no clique isolado do checkbox: essa action
+  // dispara sozinha a cada clique (AutoSubmitCheckbox), que já mostra o
+  // check marcado e o selo "Feito" na hora, no navegador. Se a gente
+  // recarregasse os dados da página a cada clique, o item pulava pra seção
+  // "Concluídos" antes da pessoa conseguir digitar o local. O dado já foi
+  // salvo no banco; a reordenação acontece ao salvar o local ou recarregar.
 }
 
 export async function excluirItemPosVenda(formData: FormData) {

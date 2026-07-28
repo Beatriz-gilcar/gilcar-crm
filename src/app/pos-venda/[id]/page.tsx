@@ -107,7 +107,6 @@ export default async function PosVendaDetailPage({
         <label className="flex flex-1 items-center gap-2 normal-case text-white">
           <AutoSubmitCheckbox name="feito" defaultChecked={item.feito} />
           {item.descricao}
-          {item.feito && <span className="badge badge-aprovado">✓ Feito</span>}
         </label>
         <input
           name="local"
