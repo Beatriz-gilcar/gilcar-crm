@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { Topbar } from '@/components/Topbar'
 import { ToggleGroup } from '@/components/ToggleGroup'
 import { ConfirmButton } from '@/components/ConfirmButton'
-import { podeVerTudo, podeEditarPosVenda } from '@/lib/membros'
+import { podeVerTudo, podeEditarPosVenda, isGerenciaCargo } from '@/lib/membros'
 import { posVendaStatusLabel, posVendaStatusBadgeClass } from '@/lib/pos_venda'
 import { updatePosVenda, deletePosVenda } from '../actions'
 
@@ -58,6 +58,10 @@ export default async function PosVendaDetailPage({
   const verTudo = podeVerTudo(profile?.cargo)
   const isAdmin = profile?.cargo === 'admin'
   const podeEditar = podeEditarPosVenda(profile?.cargo)
+  // Só gerência/admin conseguem de fato abrir a Ordem de Serviço (RLS).
+  // Cargo pos_venda (Luciana) nunca acessa — mostrar o link pra ela só levaria
+  // a um 404, então nem exibimos.
+  const podeVerOrdem = isGerenciaCargo(profile?.cargo)
 
   const { data: registro } = await supabase
     .from('pos_venda')
@@ -97,7 +101,7 @@ export default async function PosVendaDetailPage({
               {registro.veiculo_placa ? ` · ${registro.veiculo_placa}` : ''}
               {registro.unidades?.nome ? ` · ${registro.unidades.nome}` : ''}
             </p>
-            {registro.ordem_id && (
+            {registro.ordem_id && podeVerOrdem && (
               <Link
                 href={`/ordens/${registro.ordem_id}`}
                 className="mt-1 text-[.72rem] font-bold text-[var(--coral)] hover:underline"
