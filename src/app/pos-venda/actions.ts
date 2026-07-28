@@ -3,13 +3,16 @@
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { addMonthsISO } from '@/lib/business-days'
 
 type OrigemVenda = {
   cliente_nome: string
   veiculo_marca: string
   veiculo_modelo: string
   veiculo_placa: string | null
+  veiculo_km: string | null
   unidade_id: string | null
+  consultor_id: string | null
 }
 
 function texto(formData: FormData, key: string): string | null {
@@ -17,8 +20,8 @@ function texto(formData: FormData, key: string): string | null {
 }
 
 // Monta os campos do registro. Se veio uma venda de origem (ordem_id), puxa
-// cliente/veículo/unidade dela — os campos manuais do formulário são ignorados.
-// Sem ordem, usa o que foi digitado à mão.
+// cliente/veículo/unidade/consultor dela — os campos manuais do formulário são
+// ignorados. Sem ordem, usa o que foi digitado à mão.
 async function buildFields(formData: FormData) {
   const supabase = await createClient()
   const ordem_id = texto(formData, 'ordem_id')
@@ -27,11 +30,14 @@ async function buildFields(formData: FormData) {
   if (ordem_id) {
     const { data } = await supabase
       .from('ordens_servico')
-      .select('cliente_nome, veiculo_marca, veiculo_modelo, veiculo_placa, unidade_id')
+      .select('cliente_nome, veiculo_marca, veiculo_modelo, veiculo_placa, veiculo_km, unidade_id, consultor_id')
       .eq('id', ordem_id)
       .single<OrigemVenda>()
     origem = data
   }
+
+  // "Fim do pós-venda" nunca é digitado — é sempre 3 meses depois da entrega.
+  const entrega_em = texto(formData, 'entrega_em')
 
   return {
     ordem_id,
@@ -39,10 +45,12 @@ async function buildFields(formData: FormData) {
     veiculo_marca: origem?.veiculo_marca ?? texto(formData, 'veiculo_marca'),
     veiculo_modelo: origem?.veiculo_modelo ?? texto(formData, 'veiculo_modelo'),
     veiculo_placa: origem?.veiculo_placa ?? texto(formData, 'veiculo_placa'),
+    veiculo_km: origem?.veiculo_km ?? null,
     unidade_id: origem?.unidade_id ?? null,
+    consultor_id: origem?.consultor_id ?? null,
     status: (formData.get('status') as string) || 'aberto',
-    entrega_em: texto(formData, 'entrega_em'),
-    revisao_em: texto(formData, 'revisao_em'),
+    entrega_em,
+    revisao_em: entrega_em ? addMonthsISO(entrega_em, 3) : null,
     prestador: texto(formData, 'prestador'),
     anotacoes: texto(formData, 'anotacoes'),
   }

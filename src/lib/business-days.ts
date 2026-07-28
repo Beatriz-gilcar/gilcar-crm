@@ -14,3 +14,13 @@ export function addBusinessDaysISO(dataISO: string, dias: number): string {
   const d = String(data.getDate()).padStart(2, '0')
   return `${y}-${m}-${d}`
 }
+
+export function addMonthsISO(dataISO: string, meses: number): string {
+  const [ano, mes, dia] = dataISO.split('-').map(Number)
+  const data = new Date(ano, mes - 1 + meses, dia)
+
+  const y = data.getFullYear()
+  const m = String(data.getMonth() + 1).padStart(2, '0')
+  const d = String(data.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}

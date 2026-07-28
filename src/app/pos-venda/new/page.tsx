@@ -122,15 +122,12 @@ export default async function NewPosVendaPage({
               />
             </div>
 
-            <div className="grid2">
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label>Data de entrega</label>
-                <input name="entrega_em" type="date" />
-              </div>
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label>Data de revisão</label>
-                <input name="revisao_em" type="date" />
-              </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label>Data de entrega</label>
+              <input name="entrega_em" type="date" />
+              <p className="mt-1 text-[.68rem] normal-case text-[var(--text-muted)]">
+                O fim do pós-venda é calculado sozinho: 3 meses depois dessa data.
+              </p>
             </div>
 
             <div className="form-group" style={{ marginBottom: 0 }}>

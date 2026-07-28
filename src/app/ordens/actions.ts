@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { addBusinessDaysISO } from '@/lib/business-days'
+import { addBusinessDaysISO, addMonthsISO } from '@/lib/business-days'
 import { formaPagamentoLabel } from '@/lib/ordens'
 import { parseBRL } from '@/lib/mask'
 import { isGerenciaCargo } from '@/lib/membros'
@@ -296,7 +296,9 @@ type OrdemAprovadaResumo = {
   veiculo_marca: string
   veiculo_modelo: string
   veiculo_placa: string | null
+  veiculo_km: string | null
   unidade_id: string
+  consultor_id: string
   manutencao: string | null
   data_entrega: string | null
 }
@@ -313,7 +315,9 @@ export async function aprovarOrdem(formData: FormData) {
     .from('ordens_servico')
     .update({ status: 'aprovada', aprovado_por: user?.id, aprovado_em: new Date().toISOString() })
     .eq('id', id)
-    .select('tipo, cliente_nome, veiculo_marca, veiculo_modelo, veiculo_placa, unidade_id, manutencao, data_entrega')
+    .select(
+      'tipo, cliente_nome, veiculo_marca, veiculo_modelo, veiculo_placa, veiculo_km, unidade_id, consultor_id, manutencao, data_entrega'
+    )
     .single<OrdemAprovadaResumo>()
 
   if (error) {
@@ -340,12 +344,17 @@ export async function aprovarOrdem(formData: FormData) {
         .insert({
           ordem_id: id,
           unidade_id: ordem.unidade_id,
+          consultor_id: ordem.consultor_id,
           cliente_nome: ordem.cliente_nome,
           veiculo_marca: ordem.veiculo_marca,
           veiculo_modelo: ordem.veiculo_modelo,
           veiculo_placa: ordem.veiculo_placa,
+          veiculo_km: ordem.veiculo_km,
           status: 'aberto',
           entrega_em: ordem.data_entrega,
+          // "Fim do pós-venda" é sempre 3 meses depois da entrega — nunca
+          // digitado à mão (ver updatePosVenda, que recalcula se a entrega mudar).
+          revisao_em: ordem.data_entrega ? addMonthsISO(ordem.data_entrega, 3) : null,
           anotacoes: ordem.manutencao,
         })
         .select('id')

@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { Topbar } from '@/components/Topbar'
 import { ToggleGroup } from '@/components/ToggleGroup'
 import { ConfirmButton } from '@/components/ConfirmButton'
+import { AutoSubmitCheckbox } from '@/components/AutoSubmitCheckbox'
 import { podeVerTudo, podeEditarPosVenda, isGerenciaCargo } from '@/lib/membros'
 import { posVendaStatusLabel, posVendaStatusBadgeClass } from '@/lib/pos_venda'
 import { updatePosVenda, deletePosVenda, adicionarItemPosVenda, atualizarItemPosVenda, excluirItemPosVenda } from '../actions'
@@ -15,6 +16,7 @@ type PosVenda = {
   veiculo_marca: string
   veiculo_modelo: string
   veiculo_placa: string | null
+  veiculo_km: string | null
   status: string
   entrega_em: string | null
   revisao_em: string | null
@@ -73,7 +75,7 @@ export default async function PosVendaDetailPage({
   const { data: registro } = await supabase
     .from('pos_venda')
     .select(
-      'id, ordem_id, cliente_nome, veiculo_marca, veiculo_modelo, veiculo_placa, status, entrega_em, revisao_em, prestador, anotacoes, unidades(nome)'
+      'id, ordem_id, cliente_nome, veiculo_marca, veiculo_modelo, veiculo_placa, veiculo_km, status, entrega_em, revisao_em, prestador, anotacoes, unidades(nome)'
     )
     .eq('id', id)
     .single<PosVenda>()
@@ -115,6 +117,7 @@ export default async function PosVendaDetailPage({
             <p className="text-[var(--text-muted)]">
               {registro.veiculo_marca} {registro.veiculo_modelo}
               {registro.veiculo_placa ? ` · ${registro.veiculo_placa}` : ''}
+              {registro.veiculo_km ? ` · ${registro.veiculo_km} km` : ''}
               {registro.unidades?.nome ? ` · ${registro.unidades.nome}` : ''}
             </p>
             {registro.ordem_id && podeVerOrdem && (
@@ -151,8 +154,13 @@ export default async function PosVendaDetailPage({
                   <input name="entrega_em" type="date" defaultValue={registro.entrega_em ?? ''} />
                 </div>
                 <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label>Data de revisão</label>
-                  <input name="revisao_em" type="date" defaultValue={registro.revisao_em ?? ''} />
+                  <label>Fim do pós-venda</label>
+                  <p className="text-[.85rem] normal-case text-white" style={{ padding: '10px 0' }}>
+                    {dataBR(registro.revisao_em)}
+                  </p>
+                  <p className="text-[.68rem] normal-case text-[var(--text-muted)]">
+                    Sempre 3 meses depois da entrega — recalcula ao salvar.
+                  </p>
                 </div>
               </div>
 
@@ -186,7 +194,7 @@ export default async function PosVendaDetailPage({
               <p>
                 <span className="text-[var(--text-muted)]">Entrega:</span> {dataBR(registro.entrega_em)}
                 {'   ·   '}
-                <span className="text-[var(--text-muted)]">Revisão:</span> {dataBR(registro.revisao_em)}
+                <span className="text-[var(--text-muted)]">Fim do pós-venda:</span> {dataBR(registro.revisao_em)}
               </p>
               <p>
                 <span className="text-[var(--text-muted)]">Prestador:</span> {registro.prestador ?? '—'}
@@ -215,8 +223,9 @@ export default async function PosVendaDetailPage({
                     <input type="hidden" name="id" value={item.id} />
                     <input type="hidden" name="pos_venda_id" value={registro.id} />
                     <label className="flex flex-1 items-center gap-2 normal-case text-white">
-                      <input type="checkbox" name="feito" defaultChecked={item.feito} />
+                      <AutoSubmitCheckbox name="feito" defaultChecked={item.feito} />
                       {item.descricao}
+                      {item.feito && <span className="badge badge-aprovado">✓ Feito</span>}
                     </label>
                     <input
                       name="local"
@@ -226,7 +235,7 @@ export default async function PosVendaDetailPage({
                       style={{ maxWidth: 140 }}
                     />
                     <button type="submit" className="btn btn-outline btn-sm">
-                      Salvar
+                      Salvar local
                     </button>
                     <button
                       type="submit"
@@ -244,6 +253,7 @@ export default async function PosVendaDetailPage({
                     <span className="flex items-center gap-2">
                       <input type="checkbox" checked={item.feito} disabled readOnly />
                       {item.descricao}
+                      {item.feito && <span className="badge badge-aprovado">✓ Feito</span>}
                     </span>
                     <span className="text-[var(--text-muted)]">{item.local || '—'}</span>
                   </div>

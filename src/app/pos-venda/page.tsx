@@ -13,6 +13,7 @@ type PosVenda = {
   veiculo_marca: string
   veiculo_modelo: string
   veiculo_placa: string | null
+  veiculo_km: string | null
   status: string
   prestador: string | null
   entrega_em: string | null
@@ -56,7 +57,7 @@ export default async function PosVendaPage({
   let query = supabase
     .from('pos_venda')
     .select(
-      'id, cliente_nome, veiculo_marca, veiculo_modelo, veiculo_placa, status, prestador, entrega_em, revisao_em, unidades(nome)'
+      'id, cliente_nome, veiculo_marca, veiculo_modelo, veiculo_placa, veiculo_km, status, prestador, entrega_em, revisao_em, unidades(nome)'
     )
     .order('created_at', { ascending: false })
 
@@ -135,11 +136,12 @@ export default async function PosVendaPage({
                       <p className="text-[.72rem] text-[var(--text-muted)]">
                         {r.veiculo_marca} {r.veiculo_modelo}
                         {r.veiculo_placa ? ` · ${r.veiculo_placa}` : ''}
+                        {r.veiculo_km ? ` · ${r.veiculo_km} km` : ''}
                         {r.unidades?.nome ? ` · ${r.unidades.nome}` : ''}
                         {r.prestador ? ` · Em: ${r.prestador}` : ''}
                       </p>
                       <p className="text-[.68rem] text-[var(--text-muted)]">
-                        Entrega: {dataBR(r.entrega_em)} · Revisão: {dataBR(r.revisao_em)}
+                        Entrega: {dataBR(r.entrega_em)} · Fim do pós-venda: {dataBR(r.revisao_em)}
                       </p>
                     </Link>
                     <div className="flex items-center gap-3">
