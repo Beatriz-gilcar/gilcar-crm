@@ -402,9 +402,11 @@ async function migrarOrdens() {
     const status = statusNorm === 'aprovado' ? 'aprovada' : statusNorm === 'reprovado' ? 'reprovada' : 'pendente'
 
     const enderecoPartes = [textoOuNulo(json.endereco), textoOuNulo(json.numero) ? `nº ${json.numero}` : null].filter(Boolean)
+    // Manutenção vai pro campo próprio (manutencao), não pra observação —
+    // é o que alimenta o Pós-venda automaticamente quando a ordem é aprovada.
+    const manutencao = textoOuNulo(json.manutencao)
     const observacaoPartes = [
       textoOuNulo(json.obs),
-      textoOuNulo(json.manutencao) ? `Manutenção: ${json.manutencao}` : null,
       parseBRL(json['troca-debitos']) > 0 ? `Débitos da troca: R$ ${json['troca-debitos']}` : null,
     ].filter(Boolean)
 
@@ -424,6 +426,7 @@ async function migrarOrdens() {
       veiculo_ano: textoOuNulo(json.ano),
       veiculo_placa: textoOuNulo(json.placa)?.toUpperCase() ?? null,
       veiculo_cor: textoOuNulo(json.cor),
+      manutencao,
       valor_total: valorTotal,
       desconto,
       tem_troca: temTroca,
