@@ -6,7 +6,7 @@ import { ToggleGroup } from '@/components/ToggleGroup'
 import { ConfirmButton } from '@/components/ConfirmButton'
 import { podeVerTudo, podeEditarPosVenda, isGerenciaCargo } from '@/lib/membros'
 import { posVendaStatusLabel, posVendaStatusBadgeClass } from '@/lib/pos_venda'
-import { updatePosVenda, deletePosVenda } from '../actions'
+import { updatePosVenda, deletePosVenda, adicionarItemPosVenda, atualizarItemPosVenda, excluirItemPosVenda } from '../actions'
 
 type PosVenda = {
   id: string
@@ -21,6 +21,13 @@ type PosVenda = {
   prestador: string | null
   anotacoes: string | null
   unidades: { nome: string } | null
+}
+
+type ItemManutencao = {
+  id: string
+  descricao: string
+  feito: boolean
+  local: string | null
 }
 
 type ProfileSummary = { nome: string; cargo: string }
@@ -74,6 +81,15 @@ export default async function PosVendaDetailPage({
   if (!registro) {
     notFound()
   }
+
+  const { data: itensData } = await supabase
+    .from('pos_venda_itens')
+    .select('id, descricao, feito, local')
+    .eq('pos_venda_id', id)
+    .order('posicao')
+    .overrideTypes<ItemManutencao[]>()
+
+  const itens = itensData ?? []
 
   return (
     <>
@@ -181,6 +197,70 @@ export default async function PosVendaDetailPage({
               </div>
             </div>
           )}
+
+          <div className="sec-header mt-4">
+            <div className="sec-title">Serviços de manutenção</div>
+          </div>
+          <div className="sec-body sec-pad flex flex-col gap-3">
+            {itens.length === 0 ? (
+              <p className="text-[.78rem] normal-case text-[var(--text-muted)]">Nenhum serviço lançado.</p>
+            ) : (
+              itens.map((item) =>
+                podeEditar ? (
+                  <form
+                    key={item.id}
+                    action={atualizarItemPosVenda}
+                    className="flex flex-wrap items-center gap-2 border-t border-[var(--border)] pt-3 first:border-t-0 first:pt-0"
+                  >
+                    <input type="hidden" name="id" value={item.id} />
+                    <input type="hidden" name="pos_venda_id" value={registro.id} />
+                    <label className="flex flex-1 items-center gap-2 normal-case text-white">
+                      <input type="checkbox" name="feito" defaultChecked={item.feito} />
+                      {item.descricao}
+                    </label>
+                    <input
+                      name="local"
+                      type="text"
+                      defaultValue={item.local ?? ''}
+                      placeholder="Local"
+                      style={{ maxWidth: 140 }}
+                    />
+                    <button type="submit" className="btn btn-outline btn-sm">
+                      Salvar
+                    </button>
+                    <button
+                      type="submit"
+                      formAction={excluirItemPosVenda}
+                      className="text-[.72rem] font-bold text-[var(--danger)] hover:underline"
+                    >
+                      Excluir
+                    </button>
+                  </form>
+                ) : (
+                  <div
+                    key={item.id}
+                    className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--border)] pt-3 text-[.82rem] normal-case text-white first:border-t-0 first:pt-0"
+                  >
+                    <span className="flex items-center gap-2">
+                      <input type="checkbox" checked={item.feito} disabled readOnly />
+                      {item.descricao}
+                    </span>
+                    <span className="text-[var(--text-muted)]">{item.local || '—'}</span>
+                  </div>
+                )
+              )
+            )}
+
+            {podeEditar && (
+              <form action={adicionarItemPosVenda} className="flex items-center gap-2 border-t border-[var(--border)] pt-3">
+                <input type="hidden" name="pos_venda_id" value={registro.id} />
+                <input name="descricao" type="text" placeholder="Novo serviço" className="flex-1" />
+                <button type="submit" className="btn btn-outline btn-sm whitespace-nowrap">
+                  + Adicionar
+                </button>
+              </form>
+            )}
+          </div>
 
           {podeEditar && (
             <form action={deletePosVenda} className="mt-4">

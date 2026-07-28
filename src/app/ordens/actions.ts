@@ -57,6 +57,21 @@ function parseTrocas(formData: FormData): TrocaInput[] {
   })
 }
 
+// Lê a lista de serviços de manutenção do campo escondido manutencao_itens_json
+// (montado pelo OrdemForm) — um item por tópico digitado.
+function parseManutencaoItens(formData: FormData): string[] {
+  const raw = (formData.get('manutencao_itens_json') as string) ?? ''
+  if (!raw) return []
+  let lista: unknown
+  try {
+    lista = JSON.parse(raw)
+  } catch {
+    return []
+  }
+  if (!Array.isArray(lista)) return []
+  return lista.map((v) => String(v).trim()).filter(Boolean)
+}
+
 async function resolveVeiculo(supabase: SupabaseServerClient, formData: FormData) {
   const fonte = formData.get('veiculo_fonte') as string
 
@@ -133,8 +148,15 @@ async function buildOrdemFields(supabase: SupabaseServerClient, formData: FormDa
   const data_venda = (formData.get('data_venda') as string) || new Date().toISOString().slice(0, 10)
   const data_entrega = addBusinessDaysISO(data_venda, 7)
 
+  // Manutenção agora é lista de tópicos (um por linha no formulário). O texto
+  // corrido continua existindo na coluna "manutencao" só como resumo pra
+  // PDF/prévia — quem alimenta o Pós-venda de verdade é a lista em
+  // ordens_servico_manutencao_itens (ver createOrdem/updateOrdem).
+  const manutencaoItens = parseManutencaoItens(formData)
+
   return {
     valid: Boolean(tipo && unidade_id && cliente_nome && veiculo && valor_total > 0),
+    manutencaoItens,
     fields: {
       tipo,
       unidade_id,
@@ -151,7 +173,7 @@ async function buildOrdemFields(supabase: SupabaseServerClient, formData: FormDa
       cliente_email: text(formData, 'cliente_email'),
       ...veiculo,
       veiculo_km: text(formData, 'veiculo_km'),
-      manutencao: text(formData, 'manutencao'),
+      manutencao: manutencaoItens.length ? manutencaoItens.join('\n') : null,
       observacao: text(formData, 'observacao'),
       valor_total,
       desconto,
@@ -185,7 +207,7 @@ export async function createOrdem(formData: FormData) {
 
   if (!user) redirect('/login')
 
-  const { valid, fields, pagamentos, trocas } = await buildOrdemFields(supabase, formData)
+  const { valid, fields, pagamentos, trocas, manutencaoItens } = await buildOrdemFields(supabase, formData)
 
   if (!valid) {
     redirect(`/ordens/new?error=${encodeURIComponent('Preencha comprador/vendedor, veículo, unidade e valor total')}`)
@@ -213,6 +235,12 @@ export async function createOrdem(formData: FormData) {
       .insert(trocas.map((t) => ({ ...t, ordem_id: ordem!.id })))
   }
 
+  if (manutencaoItens.length > 0) {
+    await supabase.from('ordens_servico_manutencao_itens').insert(
+      manutencaoItens.map((descricao, i) => ({ ordem_id: ordem!.id, descricao, posicao: i }))
+    )
+  }
+
   revalidatePath('/ordens')
   redirect(`/ordens/${ordem!.id}`)
 }
@@ -221,7 +249,7 @@ export async function updateOrdem(formData: FormData) {
   const supabase = await createClient()
   const id = formData.get('id') as string
 
-  const { valid, fields, pagamentos, trocas } = await buildOrdemFields(supabase, formData)
+  const { valid, fields, pagamentos, trocas, manutencaoItens } = await buildOrdemFields(supabase, formData)
 
   if (!valid) {
     redirect(`/ordens/${id}?error=${encodeURIComponent('Preencha comprador/vendedor, veículo, unidade e valor total')}`)
@@ -248,6 +276,13 @@ export async function updateOrdem(formData: FormData) {
     await supabase
       .from('ordens_servico_trocas')
       .insert(trocas.map((t) => ({ ...t, ordem_id: id })))
+  }
+
+  await supabase.from('ordens_servico_manutencao_itens').delete().eq('ordem_id', id)
+  if (manutencaoItens.length > 0) {
+    await supabase.from('ordens_servico_manutencao_itens').insert(
+      manutencaoItens.map((descricao, i) => ({ ordem_id: id, descricao, posicao: i }))
+    )
   }
 
   revalidatePath('/ordens')
@@ -285,11 +320,12 @@ export async function aprovarOrdem(formData: FormData) {
     redirect(`/ordens/${id}?error=${encodeURIComponent('Não foi possível aprovar a ordem')}`)
   }
 
-  // Venda aprovada já nasce no Pós-venda sozinha, com a manutenção anotada
-  // pelo consultor virando o ponto de partida das anotações — a Luciana não
-  // precisa recriar o registro do zero pra cada venda. Usa o client admin
-  // (ignora RLS) porque só o cargo pos_venda pode escrever nessa tabela, e
-  // quem aprova aqui é gerência/admin.
+  // Venda aprovada já nasce no Pós-venda sozinha — a Luciana não precisa
+  // recriar o registro do zero pra cada venda. Cada serviço de manutenção que
+  // o consultor lançou como tópico vira um item pra ela marcar/dizer o local;
+  // "anotacoes" guarda o mesmo texto corrido só como resumo de referência.
+  // Usa o client admin (ignora RLS) porque só o cargo pos_venda pode escrever
+  // nessa tabela, e quem aprova aqui é gerência/admin.
   if (ordem?.tipo === 'venda') {
     const admin = createAdminClient()
     const { data: existente } = await admin
@@ -299,17 +335,38 @@ export async function aprovarOrdem(formData: FormData) {
       .maybeSingle<{ id: string }>()
 
     if (!existente) {
-      await admin.from('pos_venda').insert({
-        ordem_id: id,
-        unidade_id: ordem.unidade_id,
-        cliente_nome: ordem.cliente_nome,
-        veiculo_marca: ordem.veiculo_marca,
-        veiculo_modelo: ordem.veiculo_modelo,
-        veiculo_placa: ordem.veiculo_placa,
-        status: 'aberto',
-        entrega_em: ordem.data_entrega,
-        anotacoes: ordem.manutencao,
-      })
+      const { data: posVenda } = await admin
+        .from('pos_venda')
+        .insert({
+          ordem_id: id,
+          unidade_id: ordem.unidade_id,
+          cliente_nome: ordem.cliente_nome,
+          veiculo_marca: ordem.veiculo_marca,
+          veiculo_modelo: ordem.veiculo_modelo,
+          veiculo_placa: ordem.veiculo_placa,
+          status: 'aberto',
+          entrega_em: ordem.data_entrega,
+          anotacoes: ordem.manutencao,
+        })
+        .select('id')
+        .single<{ id: string }>()
+
+      const { data: itensManutencao } = await admin
+        .from('ordens_servico_manutencao_itens')
+        .select('descricao, posicao')
+        .eq('ordem_id', id)
+        .order('posicao')
+        .overrideTypes<{ descricao: string; posicao: number }[]>()
+
+      if (posVenda && itensManutencao && itensManutencao.length > 0) {
+        await admin.from('pos_venda_itens').insert(
+          itensManutencao.map((item) => ({
+            pos_venda_id: posVenda.id,
+            descricao: item.descricao,
+            posicao: item.posicao,
+          }))
+        )
+      }
     }
   }
 

@@ -107,3 +107,76 @@ export async function deletePosVenda(formData: FormData) {
   revalidatePath('/pos-venda')
   redirect('/pos-venda')
 }
+
+// ── Itens de manutenção do Pós-venda ────────────────────────────────────
+// A lista nasce dos tópicos que o consultor lançou na Ordem de Serviço
+// (ver aprovarOrdem em src/app/ordens/actions.ts); a Luciana marca "feito",
+// diz o local, e também pode adicionar item novo direto por aqui.
+
+export async function adicionarItemPosVenda(formData: FormData) {
+  const supabase = await createClient()
+  const pos_venda_id = formData.get('pos_venda_id') as string
+  const descricao = texto(formData, 'descricao')
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!descricao) {
+    redirect(`/pos-venda/${pos_venda_id}?error=${encodeURIComponent('Digite o serviço antes de adicionar')}`)
+  }
+
+  const { count } = await supabase
+    .from('pos_venda_itens')
+    .select('id', { count: 'exact', head: true })
+    .eq('pos_venda_id', pos_venda_id)
+
+  const { error } = await supabase.from('pos_venda_itens').insert({
+    pos_venda_id,
+    descricao,
+    posicao: count ?? 0,
+    criado_por: user?.id ?? null,
+  })
+
+  if (error) {
+    redirect(`/pos-venda/${pos_venda_id}?error=${encodeURIComponent('Não foi possível adicionar o item')}`)
+  }
+
+  revalidatePath(`/pos-venda/${pos_venda_id}`)
+  redirect(`/pos-venda/${pos_venda_id}`)
+}
+
+export async function atualizarItemPosVenda(formData: FormData) {
+  const supabase = await createClient()
+  const id = formData.get('id') as string
+  const pos_venda_id = formData.get('pos_venda_id') as string
+  const feito = formData.get('feito') === 'on'
+  const local = texto(formData, 'local')
+
+  const { error } = await supabase
+    .from('pos_venda_itens')
+    .update({ feito, local, updated_at: new Date().toISOString() })
+    .eq('id', id)
+
+  if (error) {
+    redirect(`/pos-venda/${pos_venda_id}?error=${encodeURIComponent('Não foi possível salvar o item')}`)
+  }
+
+  revalidatePath(`/pos-venda/${pos_venda_id}`)
+  redirect(`/pos-venda/${pos_venda_id}`)
+}
+
+export async function excluirItemPosVenda(formData: FormData) {
+  const supabase = await createClient()
+  const id = formData.get('id') as string
+  const pos_venda_id = formData.get('pos_venda_id') as string
+
+  const { error } = await supabase.from('pos_venda_itens').delete().eq('id', id)
+
+  if (error) {
+    redirect(`/pos-venda/${pos_venda_id}?error=${encodeURIComponent('Não foi possível excluir o item')}`)
+  }
+
+  revalidatePath(`/pos-venda/${pos_venda_id}`)
+  redirect(`/pos-venda/${pos_venda_id}`)
+}

@@ -90,7 +90,7 @@ export default async function NewOrdemPage({
     cliente_email: '',
     veiculo_km: '',
     observacao: '',
-    manutencao: '',
+    manutencao_itens: [],
     veiculo_fonte: veioDeAtendimento ? 'avulso' : 'estoque',
     veiculo_id: '',
     veiculo_marca_manual: '',

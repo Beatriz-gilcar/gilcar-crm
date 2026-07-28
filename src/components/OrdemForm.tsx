@@ -42,7 +42,7 @@ export type OrdemFormDefaults = {
   cliente_email: string
   veiculo_km: string
   observacao: string
-  manutencao: string
+  manutencao_itens: string[]
   veiculo_fonte: string
   veiculo_id: string
   veiculo_marca_manual: string
@@ -167,6 +167,9 @@ export function OrdemForm({
 
   const [pagamentos, setPagamentos] = useState<Record<string, string>>(defaults.pagamentos)
   const [trocas, setTrocas] = useState<TrocaInit[]>(defaults.trocas)
+  const [manutencaoItens, setManutencaoItens] = useState<string[]>(
+    defaults.manutencao_itens.length ? defaults.manutencao_itens : ['']
+  )
 
   const isVenda = tipo === 'venda'
   const compradorLabel = isVenda ? 'Comprador' : 'Vendedor'
@@ -215,6 +218,7 @@ export function OrdemForm({
 
   // Troca vira JSON num campo escondido; o server action faz o parse.
   const trocasSubmit = isVenda ? trocas.filter((t) => t.marca || t.modelo || parseBRL(t.valor_avaliado) > 0) : []
+  const manutencaoItensSubmit = manutencaoItens.map((m) => m.trim()).filter(Boolean)
 
   return (
     <form action={action} className="os-form w-full max-w-2xl flex flex-col gap-4">
@@ -225,6 +229,7 @@ export function OrdemForm({
       <input type="hidden" name="desconto" value={temDesconto ? desconto : ''} />
       <input type="hidden" name="tem_troca" value={trocasSubmit.length > 0 ? 'sim' : 'nao'} />
       <input type="hidden" name="trocas_json" value={JSON.stringify(trocasSubmit)} />
+      <input type="hidden" name="manutencao_itens_json" value={JSON.stringify(manutencaoItensSubmit)} />
 
       {errorMessage && (
         <p className="rounded-md bg-[#1a0808] px-3 py-2 text-[.78rem] normal-case text-[var(--red)]">
@@ -589,11 +594,38 @@ export function OrdemForm({
         <div className="sec-header">
           <div className="sec-title">Manutenção — pós-venda</div>
         </div>
-        <div className="sec-body sec-pad">
-          <div className="form-group" style={{ marginBottom: 0 }}>
-            <label>Manutenção</label>
-            <textarea name="manutencao" rows={2} defaultValue={defaults.manutencao} />
-          </div>
+        <div className="sec-body sec-pad flex flex-col gap-2">
+          <p className="text-[.72rem] normal-case text-[var(--text-muted)]">
+            Um serviço por linha. Cada um vira um item pra Luciana marcar no Pós-venda.
+          </p>
+          {manutencaoItens.map((item, i) => (
+            <div key={i} className="flex items-center gap-2">
+              <input
+                type="text"
+                value={item}
+                placeholder="Ex.: Padrão"
+                onChange={(e) =>
+                  setManutencaoItens((itens) => itens.map((v, idx) => (idx === i ? e.target.value : v)))
+                }
+              />
+              {manutencaoItens.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => setManutencaoItens((itens) => itens.filter((_, idx) => idx !== i))}
+                  className="text-[.72rem] font-bold text-[var(--danger)] hover:underline"
+                >
+                  Remover
+                </button>
+              )}
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={() => setManutencaoItens((itens) => [...itens, ''])}
+            className="btn btn-outline btn-sm self-start"
+          >
+            + Adicionar serviço
+          </button>
         </div>
       </div>
 

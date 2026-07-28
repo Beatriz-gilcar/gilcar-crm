@@ -175,6 +175,22 @@ export default async function OrdemDetailPage({
     ]
   }
 
+  const { data: manutencaoItensData } = await supabase
+    .from('ordens_servico_manutencao_itens')
+    .select('descricao')
+    .eq('ordem_id', id)
+    .order('posicao')
+    .overrideTypes<{ descricao: string }[]>()
+
+  // Itens pra editar: da tabela nova; se vazia mas a ordem antiga tinha o
+  // texto corrido na coluna legada, reconstrói um item pra não sumir.
+  const manutencaoItens: string[] =
+    manutencaoItensData && manutencaoItensData.length > 0
+      ? manutencaoItensData.map((m) => m.descricao)
+      : ordem.manutencao
+        ? [ordem.manutencao]
+        : []
+
   const canEdit = ordem.status === 'pendente' && (isGerencia || ordem.consultor_id === user.id)
   const canApprove = isGerencia && ordem.status === 'pendente'
   const canSign =
@@ -235,7 +251,7 @@ export default async function OrdemDetailPage({
     cliente_email: ordem.cliente_email ?? '',
     veiculo_km: ordem.veiculo_km ?? '',
     observacao: ordem.observacao ?? '',
-    manutencao: ordem.manutencao ?? '',
+    manutencao_itens: manutencaoItens,
     veiculo_fonte: ordem.veiculo_id ? 'estoque' : 'avulso',
     veiculo_id: ordem.veiculo_id ?? '',
     veiculo_marca_manual: ordem.veiculo_id ? '' : ordem.veiculo_marca,
