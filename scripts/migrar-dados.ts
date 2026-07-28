@@ -16,7 +16,7 @@ import { parse } from 'csv-parse/sync'
 import { createClient } from '@supabase/supabase-js'
 
 const DRY_RUN = process.argv.includes('--dry-run')
-const MIGRACAO_DIR = 'C:\\Users\\HP ELITE BOOK\\OneDrive\\Área de Trabalho\\gilcar-crmmigracao'
+const MIGRACAO_DIR = 'C:\\Users\\Beatriz Navarro\\Desktop\\Claude-tratos e combinados\\gilcar-crm-migracao'
 
 // ── Setup ────────────────────────────────────────────────────────────────
 
