@@ -73,7 +73,12 @@ type TrocaRow = {
   divida: number
   valor_liquido: number
 }
-type ProfileSummary = { nome: string; cargo: string; unidade_id: string | null }
+type ProfileSummary = {
+  nome: string
+  cargo: string
+  unidade_id: string | null
+  assina_ordem_servico: boolean | null
+}
 type Unidade = { id: string; nome: string }
 type VeiculoOpcao = { id: string; marca: string; modelo: string; placa: string | null; unidades: { nome: string } | null }
 
@@ -108,7 +113,7 @@ export default async function OrdemDetailPage({
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('nome, cargo, unidade_id')
+    .select('nome, cargo, unidade_id, assina_ordem_servico')
     .eq('id', user.id)
     .single<ProfileSummary>()
 
@@ -193,10 +198,15 @@ export default async function OrdemDetailPage({
 
   const canEdit = ordem.status === 'pendente' && (isGerencia || ordem.consultor_id === user.id)
   const canApprove = isGerencia && ordem.status === 'pendente'
+  // Além do gerente responsável e do admin, quem tem a flag assina_ordem_servico
+  // (ex.: José) também assina — só ordens da própria unidade, sem ganhar o
+  // resto do acesso de gerência.
   const canSign =
     ordem.status === 'aprovada' &&
     !ordem.assinado_em &&
-    (isAdmin || (profile?.cargo === 'gerente' && ordem.unidade_id === profile?.unidade_id))
+    (isAdmin ||
+      (profile?.cargo === 'gerente' && ordem.unidade_id === profile?.unidade_id) ||
+      (profile?.assina_ordem_servico === true && ordem.unidade_id === profile?.unidade_id))
   // Excluir: só reprovada; gerente só da própria unidade, admin de qualquer.
   const canExcluir =
     ordem.status === 'reprovada' &&
