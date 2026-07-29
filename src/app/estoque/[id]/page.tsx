@@ -6,7 +6,7 @@ import { ToggleGroup } from '@/components/ToggleGroup'
 import { ConfirmButton } from '@/components/ConfirmButton'
 import { statusLabel } from '@/lib/veiculos'
 import { updateVeiculo, deleteVeiculo } from '../actions'
-import { podeVerTudo } from '@/lib/membros'
+import { podeVerTudo, isGerenciaCargo } from '@/lib/membros'
 
 type VeiculoDetail = {
   id: string
@@ -55,6 +55,7 @@ export default async function VeiculoDetailPage({
     .single<ProfileSummary>()
   const verTudo = podeVerTudo(profile?.cargo)
   const isAdmin = profile?.cargo === 'admin'
+  const isGerencia = isGerenciaCargo(profile?.cargo)
 
   const { data: veiculo } = await supabase
     .from('veiculos')
@@ -71,7 +72,7 @@ export default async function VeiculoDetailPage({
   const canEdit = isAdmin || veiculo.unidade_id === profile?.unidade_id
 
   let unidades: Unidade[] = []
-  if (isAdmin) {
+  if (isAdmin || isGerencia) {
     const { data } = await supabase.from('unidades').select('id, nome').order('nome')
     unidades = data ?? []
   }
@@ -220,7 +221,7 @@ export default async function VeiculoDetailPage({
                   />
                 </div>
 
-                {isAdmin ? (
+                {isAdmin || isGerencia ? (
                   <div className="form-group" style={{ marginBottom: 0 }}>
                     <label>Unidade</label>
                     <select name="unidade_id" required defaultValue={veiculo.unidade_id}>
@@ -230,6 +231,9 @@ export default async function VeiculoDetailPage({
                         </option>
                       ))}
                     </select>
+                    <p className="mt-1 text-[.68rem] normal-case text-[var(--text-muted)]">
+                      Mudar aqui transfere o veículo pro estoque da outra unidade.
+                    </p>
                   </div>
                 ) : (
                   <input type="hidden" name="unidade_id" value={veiculo.unidade_id} />
