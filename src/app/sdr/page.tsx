@@ -259,14 +259,20 @@ export default async function SdrPage({
   // ── LANÇAMENTO (cada SDR preenche o dela) ────────────────────────────────
   const dia = dataParam || hojeBR()
   const [{ data: leadsDia }, { data: val }, { data: diaRow }] = await Promise.all([
-    supabase.from('sdr_leads').select('consultor_id, agendamentos, comparecimentos').eq('data', dia).eq('lancado_por', user.id).overrideTypes<{ consultor_id: string; agendamentos: number; comparecimentos: number }[]>(),
+    supabase.from('sdr_leads').select('consultor_id, agendamentos, comparecimentos, observacao').eq('data', dia).eq('lancado_por', user.id).overrideTypes<{ consultor_id: string; agendamentos: number; comparecimentos: number; observacao: string | null }[]>(),
     supabase.from('sdr_dia_validado').select('data').eq('data', dia).maybeSingle<{ data: string }>(),
     supabase.from('sdr_dia').select('leads_recebidos').eq('data', dia).eq('sdr_id', user.id).maybeSingle<{ leads_recebidos: number }>(),
   ])
   const validado = Boolean(val)
   const leadsRecebidosInicial = diaRow?.leads_recebidos ?? 0
-  const valoresIniciais: Record<string, { leads: number; agendamentos: number; comparecimentos: number }> = {}
-  for (const l of leadsDia ?? []) valoresIniciais[l.consultor_id] = { leads: 0, agendamentos: l.agendamentos, comparecimentos: l.comparecimentos }
+  const valoresIniciais: Record<string, { leads: number; agendamentos: number; comparecimentos: number; observacao: string }> = {}
+  for (const l of leadsDia ?? [])
+    valoresIniciais[l.consultor_id] = {
+      leads: 0,
+      agendamentos: l.agendamentos,
+      comparecimentos: l.comparecimentos,
+      observacao: l.observacao ?? '',
+    }
   // Depois de validado, ninguém mexe (a Thuane valida no consolidado).
   const podeEditar = !validado
 

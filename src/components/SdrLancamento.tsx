@@ -4,14 +4,14 @@ import { useMemo, useState } from 'react'
 
 type Consultor = { id: string; nome: string }
 type Loja = { id: string; nome: string; consultores: Consultor[] }
-type Valor = { leads: number; agendamentos: number; comparecimentos: number }
+type Valor = { leads: number; agendamentos: number; comparecimentos: number; observacao: string }
 
-const CAMPOS: { key: keyof Valor; label: string }[] = [
+const CAMPOS: { key: 'agendamentos' | 'comparecimentos'; label: string }[] = [
   { key: 'agendamentos', label: 'Agend.' },
   { key: 'comparecimentos', label: 'Compar.' },
 ]
 
-const zero = (): Valor => ({ leads: 0, agendamentos: 0, comparecimentos: 0 })
+const zero = (): Valor => ({ leads: 0, agendamentos: 0, comparecimentos: 0, observacao: '' })
 
 export function SdrLancamento({
   data,
@@ -41,9 +41,13 @@ export function SdrLancamento({
   })
   const [leadsRecebidos, setLeadsRecebidos] = useState<number>(leadsRecebidosInicial)
 
-  const set = (cid: string, key: keyof Valor, raw: string) => {
+  const set = (cid: string, key: 'agendamentos' | 'comparecimentos', raw: string) => {
     const n = Math.max(0, Math.trunc(Number(raw) || 0))
     setValores((prev) => ({ ...prev, [cid]: { ...prev[cid], [key]: n } }))
+  }
+
+  const setObservacao = (cid: string, raw: string) => {
+    setValores((prev) => ({ ...prev, [cid]: { ...(prev[cid] ?? zero()), observacao: raw } }))
   }
 
   const subtotais = useMemo(() => {
@@ -127,6 +131,7 @@ export function SdrLancamento({
                       {CAMPOS.map((c) => (
                         <th key={c.key} className="px-2 py-2 text-center font-bold">{c.label}</th>
                       ))}
+                      <th className="px-2 py-2 text-left font-bold">Observação</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -148,6 +153,17 @@ export function SdrLancamento({
                             />
                           </td>
                         ))}
+                        <td className="px-2 py-2">
+                          <input
+                            type="text"
+                            disabled={!podeEditar}
+                            value={valores[c.id]?.observacao ?? ''}
+                            onChange={(e) => setObservacao(c.id, e.target.value)}
+                            placeholder="Ex: trocou de consultor, não compareceu..."
+                            aria-label={`Observação de ${c.nome}`}
+                            style={{ minWidth: '180px' }}
+                          />
+                        </td>
                       </tr>
                     ))}
                   </tbody>

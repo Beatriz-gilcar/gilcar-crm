@@ -30,6 +30,7 @@ type LinhaSdr = {
   leads: number
   agendamentos: number
   comparecimentos: number
+  observacao?: string
 }
 
 function inteiro(v: unknown): number {
@@ -61,6 +62,7 @@ export async function salvarSdrLeads(formData: FormData) {
       leads: inteiro(l.leads),
       agendamentos: inteiro(l.agendamentos),
       comparecimentos: inteiro(l.comparecimentos),
+      observacao: (l.observacao || '').trim() || null,
       lancado_por: user.id,
       updated_at: new Date().toISOString(),
     }))
