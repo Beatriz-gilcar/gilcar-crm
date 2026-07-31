@@ -49,10 +49,17 @@ export default async function SdrPage({
 
   const admin = createAdminClient()
   const [pessoasRes, unidadesRes, sdrsRes] = await Promise.all([
-    // Sem filtro de ativo aqui de propósito: mesmo desativado (sem login),
-    // o consultor pode continuar aparecendo pras SDRs lançarem atendimento
-    // de compromissos já marcados com ele antes de sair.
-    admin.from('profiles').select('id, nome, unidade_id').in('cargo', ['consultor', 'supervisor']).order('nome').overrideTypes<Pessoa[]>(),
+    // Ativo normalmente; quem tem a flag visivel_sdr_mesmo_inativo continua
+    // aparecendo mesmo desativado (compromissos já marcados antes de sair) —
+    // sem isso, TODO inativo voltaria à lista, inclusive cadastros antigos
+    // já substituídos por um cadastro novo (duplicata visual).
+    admin
+      .from('profiles')
+      .select('id, nome, unidade_id')
+      .in('cargo', ['consultor', 'supervisor'])
+      .or('ativo.eq.true,visivel_sdr_mesmo_inativo.eq.true')
+      .order('nome')
+      .overrideTypes<Pessoa[]>(),
     admin.from('unidades').select('id, nome').order('nome').overrideTypes<Unidade[]>(),
     admin.from('profiles').select('id, nome').eq('cargo', 'sdr').eq('ativo', true).order('nome').overrideTypes<{ id: string; nome: string }[]>(),
   ])
