@@ -24,19 +24,54 @@ export async function createLembrete(formData: FormData) {
     ? new Date(`${rawVenc.length === 16 ? `${rawVenc}:00` : rawVenc}-03:00`).toISOString()
     : null
   const clienteId = (formData.get('cliente_id') as string) || null
+  const destino = (formData.get('destino') as string) || ''
   const voltarPara = '/lembretes'
 
   if (!titulo) {
     redirect(`${voltarPara}?error=${encodeURIComponent('Informe o título do lembrete')}`)
   }
 
-  const { error } = await supabase.from('lembretes').insert({
-    titulo,
-    descricao,
-    data_vencimento: dataVencimento,
-    cliente_id: clienteId,
-    consultor_id: user.id,
-  })
+  // "destino" (mandar pra outra pessoa ou grupo inteiro) só vale pro admin —
+  // ignora o campo pra qualquer outro cargo, mesmo que alguém mexa no form.
+  let destinatarios: string[] = [user.id]
+  if (destino) {
+    const { data: profile } = await supabase.from('profiles').select('cargo').eq('id', user.id).single<{ cargo: string }>()
+    if (profile?.cargo === 'admin') {
+      if (destino.startsWith('pessoa:')) {
+        destinatarios = [destino.slice('pessoa:'.length)]
+      } else if (destino === 'grupo:gerente') {
+        const { data } = await supabase
+          .from('profiles')
+          .select('id')
+          .in('cargo', ['gerente', 'supervisor'])
+          .eq('ativo', true)
+          .overrideTypes<{ id: string }[]>()
+        destinatarios = (data ?? []).map((p) => p.id)
+      } else if (destino === 'grupo:consultor') {
+        const { data } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('cargo', 'consultor')
+          .eq('ativo', true)
+          .overrideTypes<{ id: string }[]>()
+        destinatarios = (data ?? []).map((p) => p.id)
+      }
+    }
+  }
+
+  if (destinatarios.length === 0) {
+    redirect(`${voltarPara}?error=${encodeURIComponent('Nenhum destinatário encontrado pro grupo escolhido')}`)
+  }
+
+  const { error } = await supabase.from('lembretes').insert(
+    destinatarios.map((consultor_id) => ({
+      titulo,
+      descricao,
+      data_vencimento: dataVencimento,
+      cliente_id: clienteId,
+      consultor_id,
+    }))
+  )
 
   if (error) {
     redirect(`${voltarPara}?error=${encodeURIComponent('Não foi possível salvar o lembrete')}`)
