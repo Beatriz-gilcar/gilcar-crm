@@ -4,7 +4,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { Topbar } from '@/components/Topbar'
 import { SdrLancamento } from '@/components/SdrLancamento'
 import { podeVerTudo } from '@/lib/membros'
-import { salvarSdrLeads, validarDiaSdr } from './actions'
+import { salvarSdrLeads, validarDiaSdr, salvarLeadsRecebidosSdrs } from './actions'
 
 type Profile = { nome: string; cargo: string; valida_sdr: boolean | null }
 type Pessoa = { id: string; nome: string; unidade_id: string | null }
@@ -90,14 +90,16 @@ export default async function SdrPage({
     const inicio = de || inicioMesBR()
     const fim = ate || hojeBR()
     const vDia = vdia || hojeBR()
-    const [{ data: linhasData }, { data: diasData }, { data: valDia }] = await Promise.all([
+    const [{ data: linhasData }, { data: diasData }, { data: valDia }, { data: leadsVDiaData }] = await Promise.all([
       supabase.from('sdr_leads').select('consultor_id, unidade_id, agendamentos, comparecimentos, lancado_por').gte('data', inicio).lte('data', fim).overrideTypes<LeadRow[]>(),
       supabase.from('sdr_dia').select('sdr_id, leads_recebidos').gte('data', inicio).lte('data', fim).overrideTypes<{ sdr_id: string; leads_recebidos: number }[]>(),
       supabase.from('sdr_dia_validado').select('data').eq('data', vDia).maybeSingle<{ data: string }>(),
+      supabase.from('sdr_dia').select('sdr_id, leads_recebidos').eq('data', vDia).overrideTypes<{ sdr_id: string; leads_recebidos: number }[]>(),
     ])
     const linhas = linhasData ?? []
     const dias = diasData ?? []
     const validadoDia = Boolean(valDia)
+    const leadsVDia = new Map((leadsVDiaData ?? []).map((d) => [d.sdr_id, d.leads_recebidos]))
 
     const porLoja = new Map<string, { ag: number; comp: number }>()
     const porConsultor = new Map<string, { ag: number; comp: number }>()
@@ -158,6 +160,36 @@ export default async function SdrPage({
                 </button>
                 {validadoDia && <span className="rounded-full bg-[var(--success-soft)] px-3 py-1 text-[.72rem] font-bold text-[var(--success)]">✓ Dia validado</span>}
               </form>
+            </div>
+
+            {/* Leads recebidos por SDR — a Thuane digita/corrige o de cada uma no dia escolhido acima. */}
+            <div className="mt-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3">
+              <span className="text-[.74rem] font-bold uppercase tracking-wide text-[var(--text-muted)]">
+                Leads recebidos por SDR — {vDia.split('-').reverse().join('/')}
+              </span>
+              {sdrs.length === 0 ? (
+                <p className="mt-2 text-[.78rem] normal-case text-[var(--text-muted)]">Nenhuma SDR cadastrada.</p>
+              ) : (
+                <form action={salvarLeadsRecebidosSdrs} className="mt-2 flex flex-col gap-2">
+                  <input type="hidden" name="data" value={vDia} />
+                  {sdrs.map((s) => (
+                    <div key={s.id} className="flex items-center justify-between gap-3">
+                      <span className="text-[.8rem] normal-case text-white">{s.nome}</span>
+                      <input
+                        type="number"
+                        min="0"
+                        inputMode="numeric"
+                        name={`leads_${s.id}`}
+                        defaultValue={leadsVDia.get(s.id) ?? 0}
+                        aria-label={`Leads recebidos de ${s.nome}`}
+                        className="text-center"
+                        style={{ width: '6rem', flex: '0 0 auto' }}
+                      />
+                    </div>
+                  ))}
+                  <button type="submit" className="btn btn-outline btn-sm mt-1 self-start">Salvar leads recebidos</button>
+                </form>
+              )}
             </div>
 
             <div className="mt-4 rounded-2xl border border-[var(--coral)] bg-[var(--coral-soft)] px-4 py-3">

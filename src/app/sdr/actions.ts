@@ -88,6 +88,35 @@ export async function salvarSdrLeads(formData: FormData) {
   redirect(`/sdr?data=${data}&success=salvo`)
 }
 
+// Thuane/admin corrige o total de leads recebidos de cada SDR num dia (a SDR
+// normalmente digita o próprio, mas às vezes é a gerente quem sabe o número
+// certo, ex. quando a SDR esqueceu ou lançou errado).
+export async function salvarLeadsRecebidosSdrs(formData: FormData) {
+  const supabase = await createClient()
+  const { valida } = await quemPodeSdr(supabase)
+  const data = (formData.get('data') as string) || ''
+
+  if (!valida) redirect(`/sdr?vdia=${data}&error=${encodeURIComponent('Só a gerente de SDR corrige o de outra pessoa')}`)
+  if (!data) redirect('/sdr')
+
+  const registros: { data: string; sdr_id: string; leads_recebidos: number; updated_at: string }[] = []
+  for (const [key, value] of formData.entries()) {
+    if (!key.startsWith('leads_')) continue
+    const sdr_id = key.slice('leads_'.length)
+    registros.push({ data, sdr_id, leads_recebidos: inteiro(value), updated_at: new Date().toISOString() })
+  }
+
+  if (registros.length > 0) {
+    const { error } = await supabase.from('sdr_dia').upsert(registros, { onConflict: 'data,sdr_id' })
+    if (error) {
+      redirect(`/sdr?vdia=${data}&error=${encodeURIComponent('Não foi possível salvar os leads recebidos')}`)
+    }
+  }
+
+  revalidatePath('/sdr')
+  redirect(`/sdr?vdia=${data}&success=salvo`)
+}
+
 // Valida o dia (só a gerente de SDR ou o admin). Marca/desmarca.
 export async function validarDiaSdr(formData: FormData) {
   const supabase = await createClient()
