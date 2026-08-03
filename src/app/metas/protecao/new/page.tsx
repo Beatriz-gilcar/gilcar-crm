@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { Topbar } from '@/components/Topbar'
+import { MoedaInput } from '@/components/MoedaInput'
 import { createVendaProtecao } from '../../actions'
 import { isGerenciaCargo, podeVerTudo } from '@/lib/membros'
 
@@ -119,11 +120,11 @@ export default async function NewVendaProtecaoPage({
               <input name="cliente" type="text" placeholder="Nome completo" required />
             </div>
 
-            {/* min=0 e não min=0.01: no antigo há proteção lançada a R$ 0,00, e
-                ela conta como 1 seguro na meta igual às outras. */}
+            {/* Aceita 0,00: no antigo há proteção lançada a R$ 0,00, e ela
+                conta como 1 seguro na meta igual às outras. */}
             <div className="form-group" style={{ marginBottom: 0 }}>
-              <label>Valor da proteção (R$)</label>
-              <input name="valor" type="number" step="0.01" min="0" defaultValue="0" required />
+              <label>Valor da proteção</label>
+              <MoedaInput name="valor" defaultValue="0,00" required />
             </div>
 
             <div className="form-group" style={{ marginBottom: 0 }}>

@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import { mesRange } from '@/lib/metas'
+import { parseBRL } from '@/lib/mask'
 import { isGerenciaCargo } from '@/lib/membros'
 
 type SupaClient = Awaited<ReturnType<typeof createClient>>
@@ -243,7 +244,8 @@ export async function createVendaProtecao(formData: FormData) {
   const unidade_id = formData.get('unidade_id') as string
   const placa = (formData.get('placa') as string)?.trim().toUpperCase() || null
   const cliente = (formData.get('cliente') as string)?.trim()
-  const valor = num(formData, 'valor')
+  // Campo mascarado ("550,00"), não number puro — usa parseBRL, não num().
+  const valor = parseBRL((formData.get('valor') as string) ?? '')
   const data = (formData.get('data') as string) || new Date().toISOString().slice(0, 10)
   const observacao = (formData.get('observacao') as string)?.trim() || null
 
