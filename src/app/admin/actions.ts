@@ -171,6 +171,29 @@ export async function alternarAtivoMembro(formData: FormData) {
   redirect('/admin')
 }
 
+export async function alterarEmail(formData: FormData) {
+  await requireAdmin()
+
+  const id = formData.get('id') as string
+  const email = (formData.get('email') as string)?.trim().toLowerCase()
+
+  if (!email) {
+    redirect(`/admin/${id}?error=${encodeURIComponent('Informe o e-mail')}`)
+  }
+
+  const adminClient = createAdminClient()
+  const { error } = await adminClient.auth.admin.updateUserById(id, { email, email_confirm: true })
+
+  if (error) {
+    const message = error.message.includes('already been registered')
+      ? 'Já existe um usuário com esse e-mail'
+      : 'Não foi possível alterar o e-mail'
+    redirect(`/admin/${id}?error=${encodeURIComponent(message)}`)
+  }
+
+  redirect(`/admin/${id}?success=email`)
+}
+
 export async function resetSenha(formData: FormData) {
   await requireAdmin()
 

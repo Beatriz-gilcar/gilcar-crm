@@ -6,7 +6,7 @@ import { Topbar } from '@/components/Topbar'
 import { ToggleGroup } from '@/components/ToggleGroup'
 import { TelefoneInput } from '@/components/TelefoneInput'
 import { cargoLabel } from '@/lib/membros'
-import { updateMembro, resetSenha } from '../actions'
+import { updateMembro, resetSenha, alterarEmail } from '../actions'
 
 type ProfileSummary = { nome: string; cargo: string }
 type Unidade = { id: string; nome: string }
@@ -89,6 +89,27 @@ export default async function EditMembroPage({
               Senha redefinida.
             </p>
           )}
+          {success === 'email' && (
+            <p className="rounded-md bg-[#001600] px-3 py-2 text-[.78rem] normal-case text-[#2db82d]">
+              E-mail atualizado.
+            </p>
+          )}
+
+          <form action={alterarEmail}>
+            <div className="sec-header">
+              <div className="sec-title">E-mail (login)</div>
+            </div>
+            <div className="sec-body sec-pad flex flex-wrap items-end gap-3">
+              <input type="hidden" name="id" value={membro.id} />
+              <div className="form-group flex-1" style={{ marginBottom: 0, minWidth: 180 }}>
+                <label>E-mail</label>
+                <input name="email" type="email" required defaultValue={email === '—' ? '' : email} className="normal-case" />
+              </div>
+              <button type="submit" className="btn btn-outline btn-sm">
+                Salvar e-mail
+              </button>
+            </div>
+          </form>
 
           <form action={updateMembro}>
             <div className="sec-header">
@@ -96,11 +117,6 @@ export default async function EditMembroPage({
             </div>
             <div className="sec-body sec-pad flex flex-col gap-3">
               <input type="hidden" name="id" value={membro.id} />
-
-              <div className="form-group" style={{ marginBottom: 0 }}>
-                <label>E-mail (login)</label>
-                <input type="text" value={email} disabled className="normal-case opacity-60" />
-              </div>
 
               <div className="form-group" style={{ marginBottom: 0 }}>
                 <label>Nome</label>
