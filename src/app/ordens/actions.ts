@@ -25,6 +25,7 @@ type TrocaInput = {
   modelo: string | null
   ano: string | null
   placa: string | null
+  cambio: string | null
   valor_avaliado: number
   divida: number
   valor_liquido: number
@@ -50,6 +51,7 @@ function parseTrocas(formData: FormData): TrocaInput[] {
       modelo: item.modelo?.trim() || null,
       ano: item.ano?.trim() || null,
       placa: item.placa?.trim().toUpperCase() || null,
+      cambio: item.cambio === 'automatico' ? 'automatico' : 'manual',
       valor_avaliado,
       divida,
       valor_liquido: valor_avaliado - divida,
@@ -377,11 +379,48 @@ export async function aprovarOrdem(formData: FormData) {
         )
       }
     }
+
+    // Veículo dado na troca entra sozinho no estoque, na mesma unidade da
+    // venda, já disponível pra revenda. Só o que tem marca+modelo preenchido
+    // (linha vazia não vira veículo); origem_troca_id evita duplicar se essa
+    // aprovação rodar de novo pra mesma ordem.
+    const { data: trocasOrdem } = await admin
+      .from('ordens_servico_trocas')
+      .select('id, marca, modelo, ano, placa, cambio')
+      .eq('ordem_id', id)
+      .overrideTypes<{ id: string; marca: string | null; modelo: string | null; ano: string | null; placa: string | null; cambio: string | null }[]>()
+
+    for (const troca of trocasOrdem ?? []) {
+      if (!troca.marca || !troca.modelo) continue
+
+      const { data: jaEntrou } = await admin
+        .from('veiculos')
+        .select('id')
+        .eq('origem_troca_id', troca.id)
+        .maybeSingle<{ id: string }>()
+      if (jaEntrou) continue
+
+      await admin.from('veiculos').insert({
+        marca: troca.marca,
+        modelo: troca.modelo,
+        ano: troca.ano,
+        placa: troca.placa,
+        cambio: troca.cambio ?? 'manual',
+        gnv: false,
+        status: 'disponivel',
+        unidade_id: ordem.unidade_id,
+        origem_troca_id: troca.id,
+        observacao: `Troca da venda de ${ordem.cliente_nome}`,
+      })
+      // Se der erro aqui, não trava a aprovação da venda — só não entra
+      // sozinho no estoque, o gerente cadastra na mão depois.
+    }
   }
 
   revalidatePath('/ordens')
   revalidatePath(`/ordens/${id}`)
   revalidatePath('/pos-venda')
+  revalidatePath('/estoque')
   redirect(`/ordens/${id}`)
 }
 

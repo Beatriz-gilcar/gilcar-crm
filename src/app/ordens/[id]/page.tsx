@@ -69,6 +69,7 @@ type TrocaRow = {
   modelo: string | null
   ano: string | null
   placa: string | null
+  cambio: string | null
   valor_avaliado: number
   divida: number
   valor_liquido: number
@@ -158,7 +159,7 @@ export default async function OrdemDetailPage({
 
   const { data: trocasData } = await supabase
     .from('ordens_servico_trocas')
-    .select('marca, modelo, ano, placa, valor_avaliado, divida, valor_liquido')
+    .select('marca, modelo, ano, placa, cambio, valor_avaliado, divida, valor_liquido')
     .eq('ordem_id', id)
     .order('created_at')
     .overrideTypes<TrocaRow[]>()
@@ -173,6 +174,7 @@ export default async function OrdemDetailPage({
         modelo: ordem.troca_modelo,
         ano: ordem.troca_ano,
         placa: ordem.troca_placa,
+        cambio: null,
         valor_avaliado: ordem.troca_valor_avaliado ?? 0,
         divida: ordem.troca_divida ?? 0,
         valor_liquido: ordem.troca_valor_liquido ?? 0,
@@ -282,6 +284,7 @@ export default async function OrdemDetailPage({
         modelo: t.modelo ?? '',
         ano: t.ano ?? '',
         placa: t.placa ?? '',
+        cambio: t.cambio ?? 'manual',
         valor_avaliado: moneyDefault(t.valor_avaliado),
         divida: moneyDefault(t.divida),
       })

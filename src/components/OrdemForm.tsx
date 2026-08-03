@@ -21,6 +21,7 @@ export type TrocaInit = {
   modelo: string
   ano: string
   placa: string
+  cambio: string
   valor_avaliado: string
   divida: string
 }
@@ -63,6 +64,7 @@ const trocaVazia: TrocaInit = {
   modelo: '',
   ano: '',
   placa: '',
+  cambio: 'manual',
   valor_avaliado: '',
   divida: '',
 }
@@ -562,6 +564,20 @@ export function OrdemForm({
                     <label>Placa</label>
                     <input type="text" className="uppercase" value={t.placa} onChange={(e) => setTroca(i, 'placa', e.target.value)} />
                   </div>
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label>Câmbio</label>
+                  <Pills
+                    value={t.cambio}
+                    onChange={(v) => setTroca(i, 'cambio', v)}
+                    options={[
+                      { value: 'manual', label: 'Manual' },
+                      { value: 'automatico', label: 'Automático' },
+                    ]}
+                  />
+                  <p className="mt-1 text-[.68rem] normal-case text-[var(--text-muted)]">
+                    Esse veículo entra automaticamente no estoque quando a venda for aprovada.
+                  </p>
                 </div>
                 <div className="grid2">
                   <div className="form-group" style={{ marginBottom: 0 }}>
