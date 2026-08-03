@@ -95,8 +95,11 @@ export async function salvarLeadsRecebidosSdrs(formData: FormData) {
   const supabase = await createClient()
   const { valida } = await quemPodeSdr(supabase)
   const data = (formData.get('data') as string) || ''
+  const de = (formData.get('de') as string) || ''
+  const ate = (formData.get('ate') as string) || ''
+  const voltar = `/sdr?de=${de}&ate=${ate}`
 
-  if (!valida) redirect(`/sdr?vdia=${data}&error=${encodeURIComponent('Só a gerente de SDR corrige o de outra pessoa')}`)
+  if (!valida) redirect(`${voltar}&error=${encodeURIComponent('Só a gerente de SDR corrige o de outra pessoa')}`)
   if (!data) redirect('/sdr')
 
   const registros: { data: string; sdr_id: string; leads_recebidos: number; updated_at: string }[] = []
@@ -109,12 +112,12 @@ export async function salvarLeadsRecebidosSdrs(formData: FormData) {
   if (registros.length > 0) {
     const { error } = await supabase.from('sdr_dia').upsert(registros, { onConflict: 'data,sdr_id' })
     if (error) {
-      redirect(`/sdr?vdia=${data}&error=${encodeURIComponent('Não foi possível salvar os leads recebidos')}`)
+      redirect(`${voltar}&error=${encodeURIComponent('Não foi possível salvar os leads recebidos')}`)
     }
   }
 
   revalidatePath('/sdr')
-  redirect(`/sdr?vdia=${data}&success=salvo`)
+  redirect(`${voltar}&success=salvo`)
 }
 
 // Valida o dia (só a gerente de SDR ou o admin). Marca/desmarca.

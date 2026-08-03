@@ -90,16 +90,18 @@ export default async function SdrPage({
     const inicio = de || inicioMesBR()
     const fim = ate || hojeBR()
     const vDia = vdia || hojeBR()
-    const [{ data: linhasData }, { data: diasData }, { data: valDia }, { data: leadsVDiaData }] = await Promise.all([
+    const [{ data: linhasData }, { data: diasData }, { data: valDia }, { data: leadsInicioData }] = await Promise.all([
       supabase.from('sdr_leads').select('consultor_id, unidade_id, agendamentos, comparecimentos, lancado_por').gte('data', inicio).lte('data', fim).overrideTypes<LeadRow[]>(),
       supabase.from('sdr_dia').select('sdr_id, leads_recebidos').gte('data', inicio).lte('data', fim).overrideTypes<{ sdr_id: string; leads_recebidos: number }[]>(),
       supabase.from('sdr_dia_validado').select('data').eq('data', vDia).maybeSingle<{ data: string }>(),
-      supabase.from('sdr_dia').select('sdr_id, leads_recebidos').eq('data', vDia).overrideTypes<{ sdr_id: string; leads_recebidos: number }[]>(),
+      // O lançamento por SDR fica ancorado no início do período (De) — é o
+      // valor que representa "o total desse período", não um dia avulso.
+      supabase.from('sdr_dia').select('sdr_id, leads_recebidos').eq('data', inicio).overrideTypes<{ sdr_id: string; leads_recebidos: number }[]>(),
     ])
     const linhas = linhasData ?? []
     const dias = diasData ?? []
     const validadoDia = Boolean(valDia)
-    const leadsVDia = new Map((leadsVDiaData ?? []).map((d) => [d.sdr_id, d.leads_recebidos]))
+    const leadsInicio = new Map((leadsInicioData ?? []).map((d) => [d.sdr_id, d.leads_recebidos]))
 
     const porLoja = new Map<string, { ag: number; comp: number }>()
     const porConsultor = new Map<string, { ag: number; comp: number }>()
@@ -162,16 +164,22 @@ export default async function SdrPage({
               </form>
             </div>
 
-            {/* Leads recebidos por SDR — a Thuane digita/corrige o de cada uma no dia escolhido acima. */}
+            {/* Leads recebidos por SDR — total do período De/Até escolhido acima
+                (não de um dia avulso), pra Thuane lançar o total do mês de uma vez. */}
             <div className="mt-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3">
               <span className="text-[.74rem] font-bold uppercase tracking-wide text-[var(--text-muted)]">
-                Leads recebidos por SDR — {vDia.split('-').reverse().join('/')}
+                Leads recebidos por SDR — total de {inicio.split('-').reverse().join('/')} a {fim.split('-').reverse().join('/')}
               </span>
+              <p className="mt-1 text-[.68rem] normal-case text-[var(--text-muted)]">
+                Digite o total do período (ex.: o mês inteiro) — não é um lançamento por dia.
+              </p>
               {sdrs.length === 0 ? (
                 <p className="mt-2 text-[.78rem] normal-case text-[var(--text-muted)]">Nenhuma SDR cadastrada.</p>
               ) : (
                 <form action={salvarLeadsRecebidosSdrs} className="mt-2 flex flex-col gap-2">
-                  <input type="hidden" name="data" value={vDia} />
+                  <input type="hidden" name="data" value={inicio} />
+                  <input type="hidden" name="de" value={inicio} />
+                  <input type="hidden" name="ate" value={fim} />
                   {sdrs.map((s) => (
                     <div key={s.id} className="flex items-center justify-between gap-3">
                       <span className="text-[.8rem] normal-case text-white">{s.nome}</span>
@@ -180,7 +188,7 @@ export default async function SdrPage({
                         min="0"
                         inputMode="numeric"
                         name={`leads_${s.id}`}
-                        defaultValue={leadsVDia.get(s.id) ?? 0}
+                        defaultValue={leadsInicio.get(s.id) ?? 0}
                         aria-label={`Leads recebidos de ${s.nome}`}
                         className="text-center"
                         style={{ width: '6rem', flex: '0 0 auto' }}
