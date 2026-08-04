@@ -210,10 +210,12 @@ export default async function OrdemDetailPage({
     (isAdmin ||
       (profile?.cargo === 'gerente' && ordem.unidade_id === profile?.unidade_id) ||
       (profile?.assina_ordem_servico === true && ordem.unidade_id === profile?.unidade_id))
-  // Excluir: só reprovada; gerente só da própria unidade, admin de qualquer.
+  // Excluir: reprovada (gerente só da própria unidade, admin de qualquer) ou
+  // aprovada (só admin — aprovar espalha registros em Pós-venda/Estoque/
+  // Comissões, então a exclusão de uma aprovada precisa limpar isso também).
   const canExcluir =
-    ordem.status === 'reprovada' &&
-    (isAdmin || (isGerencia && ordem.unidade_id === profile?.unidade_id))
+    (ordem.status === 'reprovada' && (isAdmin || (isGerencia && ordem.unidade_id === profile?.unidade_id))) ||
+    (ordem.status === 'aprovada' && isAdmin)
 
   let unidades: Unidade[] = []
   let veiculos: { id: string; label: string }[] = []
@@ -319,7 +321,11 @@ export default async function OrdemDetailPage({
                 <input type="hidden" name="id" value={ordem.id} />
                 <ConfirmButton
                   className="btn btn-outline btn-sm text-[var(--danger)]"
-                  confirmMessage={`Excluir definitivamente a ordem reprovada de ${ordem.cliente_nome}?`}
+                  confirmMessage={
+                    ordem.status === 'aprovada'
+                      ? `Excluir definitivamente a ordem APROVADA de ${ordem.cliente_nome}? Isso também apaga a comissão e o pós-venda gerados por ela.`
+                      : `Excluir definitivamente a ordem reprovada de ${ordem.cliente_nome}?`
+                  }
                 >
                   Excluir ordem
                 </ConfirmButton>

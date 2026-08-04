@@ -526,8 +526,10 @@ export async function assinarOrdem(formData: FormData) {
   redirect(`/ordens/${id}/pdf`)
 }
 
-// Excluir ordem: só as REPROVADAS, e o gerente só as da própria unidade
-// (admin exclui de qualquer unidade). Consultor não exclui.
+// Excluir ordem: REPROVADA (gerente só da própria unidade, admin de qualquer)
+// ou APROVADA (só admin — aprovar espalha registros em Pós-venda, Estoque
+// (troca) e Comissões, então a exclusão limpa esse rastro antes de apagar a
+// ordem). Consultor não exclui.
 export async function deleteOrdem(formData: FormData) {
   const supabase = await createClient()
   const id = formData.get('id') as string
@@ -543,12 +545,39 @@ export async function deleteOrdem(formData: FormData) {
   ])
 
   const isAdmin = prof?.cargo === 'admin'
-  const podeExcluir =
+  const podeExcluirReprovada =
     ordem?.status === 'reprovada' &&
     (isAdmin || (isGerenciaCargo(prof?.cargo) && ordem?.unidade_id === prof?.unidade_id))
+  const podeExcluirAprovada = ordem?.status === 'aprovada' && isAdmin
 
-  if (!podeExcluir) {
-    redirect(`/ordens/${id}?error=${encodeURIComponent('Só dá pra excluir ordem reprovada da sua unidade')}`)
+  if (!podeExcluirReprovada && !podeExcluirAprovada) {
+    redirect(`/ordens/${id}?error=${encodeURIComponent('Só dá pra excluir ordem reprovada da sua unidade, ou aprovada (só admin)')}`)
+  }
+
+  if (podeExcluirAprovada) {
+    const admin = createAdminClient()
+
+    await admin.from('comissoes').delete().eq('ordem_servico_id', id)
+
+    const { data: posVenda } = await admin
+      .from('pos_venda')
+      .select('id')
+      .eq('ordem_id', id)
+      .maybeSingle<{ id: string }>()
+    if (posVenda) {
+      await admin.from('pos_venda_itens').delete().eq('pos_venda_id', posVenda.id)
+      await admin.from('pos_venda').delete().eq('id', posVenda.id)
+    }
+
+    const { data: trocas } = await admin
+      .from('ordens_servico_trocas')
+      .select('id')
+      .eq('ordem_id', id)
+      .overrideTypes<{ id: string }[]>()
+    const trocaIds = (trocas ?? []).map((t) => t.id)
+    if (trocaIds.length > 0) {
+      await admin.from('veiculos').delete().in('origem_troca_id', trocaIds)
+    }
   }
 
   const { error } = await supabase.from('ordens_servico').delete().eq('id', id)
@@ -557,5 +586,7 @@ export async function deleteOrdem(formData: FormData) {
   }
 
   revalidatePath('/ordens')
+  revalidatePath('/pos-venda')
+  revalidatePath('/estoque')
   redirect('/ordens')
 }
