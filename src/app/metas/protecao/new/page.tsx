@@ -46,7 +46,7 @@ export default async function NewVendaProtecaoPage({
     const { data: membrosData } = await supabase
       .from('profiles')
       .select('id, nome, unidade_id')
-      .in('cargo', ['consultor', 'gerente'])
+      .in('cargo', ['consultor', 'gerente', 'supervisor'])
       .order('nome')
     membros = membrosData ?? []
   }

@@ -107,13 +107,14 @@ export default async function ProtecaoPage({
   const { data: unidadesData } = await supabase.from('unidades').select('id, nome').order('nome')
   const unidades = (unidadesData ?? []) as Unidade[]
 
-  // Só quem vende entra nas metas por vendedor — no antigo o supervisor conta
-  // junto com o consultor (gs:1671). Inativo fora: não vende mais.
+  // Só quem vende entra nas metas por vendedor — supervisor conta junto com o
+  // consultor (gs:1671), e gerente também vende proteção. Inativo fora: não
+  // vende mais.
   const { data: vendedoresData } = verTudo
     ? await supabase
         .from('profiles')
         .select('id, nome, unidade_id, unidades(nome)')
-        .in('cargo', ['consultor', 'supervisor'])
+        .in('cargo', ['consultor', 'supervisor', 'gerente'])
         .eq('ativo', true)
         .order('nome')
         .overrideTypes<Vendedor[]>()

@@ -53,7 +53,7 @@ export default async function DefinirMetasPage({
   const { data: membrosData } = await supabase
     .from('profiles')
     .select('id, nome')
-    .in('cargo', ['consultor', 'gerente'])
+    .in('cargo', ['consultor', 'gerente', 'supervisor'])
     .order('nome')
   const membros = (membrosData ?? []) as Membro[]
 
