@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { dataHoraBR, horaBR } from '@/lib/datas'
 
 type Lembrete = { id: string; titulo: string; data_vencimento: string | null; concluido: boolean }
+type Pessoa = { id: string; nome: string; cargo: string }
 
 function jaAlertado(id: string): boolean {
   try {
@@ -47,17 +48,24 @@ export function LembretesWidget() {
   const [temVencido, setTemVencido] = useState(false)
   const [titulo, setTitulo] = useState('')
   const [quando, setQuando] = useState('')
+  const [destino, setDestino] = useState('')
   const [salvando, setSalvando] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
+  const [gerentes, setGerentes] = useState<Pessoa[]>([])
+  const [consultores, setConsultores] = useState<Pessoa[]>([])
   const ref = useRef<Lembrete[]>([])
   ref.current = lembretes
 
   function buscar() {
     fetch('/api/lembretes')
       .then((r) => (r.ok ? r.json() : null))
-      .then((d: { lembretes: Lembrete[] } | null) => {
+      .then((d: { lembretes: Lembrete[]; isAdmin?: boolean; gerentes?: Pessoa[]; consultores?: Pessoa[] } | null) => {
         if (d) {
           setLembretes(d.lembretes)
           setCarregado(true)
+          setIsAdmin(!!d.isAdmin)
+          setGerentes(d.gerentes ?? [])
+          setConsultores(d.consultores ?? [])
         }
       })
       .catch(() => {})
@@ -138,10 +146,11 @@ export function LembretesWidget() {
     await fetch('/api/lembretes', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ titulo, data_vencimento: quando }),
+      body: JSON.stringify({ titulo, data_vencimento: quando, destino }),
     }).catch(() => {})
     setTitulo('')
     setQuando('')
+    setDestino('')
     setSalvando(false)
     buscar()
   }
@@ -185,6 +194,31 @@ export function LembretesWidget() {
               placeholder="Ex.: bater ponto"
               required
             />
+            {isAdmin && (
+              <select value={destino} onChange={(e) => setDestino(e.target.value)} className="text-[.75rem]">
+                <option value="">Só eu</option>
+                <option value="grupo:gerente">Todos os gerentes/supervisores</option>
+                <option value="grupo:consultor">Todos os consultores</option>
+                {gerentes.length > 0 && (
+                  <optgroup label="Gerentes/supervisores">
+                    {gerentes.map((p) => (
+                      <option key={p.id} value={`pessoa:${p.id}`}>
+                        {p.nome}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                {consultores.length > 0 && (
+                  <optgroup label="Consultores">
+                    {consultores.map((p) => (
+                      <option key={p.id} value={`pessoa:${p.id}`}>
+                        {p.nome}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+              </select>
+            )}
             <div className="flex items-center gap-2">
               <input
                 type="datetime-local"
