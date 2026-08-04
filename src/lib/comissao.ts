@@ -106,3 +106,20 @@ export function calcularComissao(params: {
     descricao: `Carro — ${veiculo}${notaDesconto}${notaOver}`,
   }
 }
+
+// Bônus do gerente: R$500 por venda de carro de um consultor da própria
+// unidade (R$300 se teve desconto). Só carro — não moto — e só quando quem
+// vendeu tem cargo consultor (revenda não gera bônus pro gerente; se o
+// próprio gerente vende, ele já ganha a comissão normal de vendedor).
+export function calcularBonusGerente(params: {
+  vendedorCargo: string
+  revenda: boolean
+  marca: string
+  modelo: string
+  desconto: number
+}): number | null {
+  if (params.vendedorCargo !== 'consultor') return null
+  if (params.revenda) return null
+  if (ehMoto(params.marca, params.modelo)) return null
+  return params.desconto > 0 ? 300 : 500
+}

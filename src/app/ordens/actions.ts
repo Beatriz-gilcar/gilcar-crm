@@ -8,7 +8,7 @@ import { addBusinessDaysISO, addMonthsISO } from '@/lib/business-days'
 import { formaPagamentoLabel } from '@/lib/ordens'
 import { parseBRL } from '@/lib/mask'
 import { isGerenciaCargo } from '@/lib/membros'
-import { calcularComissao } from '@/lib/comissao'
+import { calcularComissao, calcularBonusGerente } from '@/lib/comissao'
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>
 
@@ -311,7 +311,7 @@ type OrdemAprovadaResumo = {
   desconto: number
   over: number
   data_venda: string
-  vendedor: { nome: string } | null
+  vendedor: { nome: string; cargo: string } | null
 }
 
 export async function aprovarOrdem(formData: FormData) {
@@ -329,7 +329,7 @@ export async function aprovarOrdem(formData: FormData) {
     .select(
       `tipo, cliente_nome, veiculo_marca, veiculo_modelo, veiculo_placa, veiculo_km, unidade_id, consultor_id,
        manutencao, data_entrega, revenda, valor_total, desconto, over, data_venda,
-       vendedor:profiles!ordens_servico_consultor_id_fkey(nome)`
+       vendedor:profiles!ordens_servico_consultor_id_fkey(nome, cargo)`
     )
     .single<OrdemAprovadaResumo>()
 
@@ -366,6 +366,42 @@ export async function aprovarOrdem(formData: FormData) {
     // aprovação da ordem — o financeiro ajusta na mão em Gestão Gilcar.
     if (comissaoError && comissaoError.code !== '23505') {
       console.error('Falha ao lançar comissão automática', comissaoError)
+    }
+
+    // Bônus do gerente da unidade por venda de carro de um consultor —
+    // lançamento à parte, pro gerente, referenciando a mesma ordem.
+    const bonusGerente = calcularBonusGerente({
+      vendedorCargo: ordem.vendedor?.cargo ?? '',
+      revenda: ordem.revenda,
+      marca: ordem.veiculo_marca,
+      modelo: ordem.veiculo_modelo,
+      desconto: Number(ordem.desconto),
+    })
+
+    if (bonusGerente !== null) {
+      const { data: gerente } = await admin
+        .from('profiles')
+        .select('id, nome')
+        .eq('cargo', 'gerente')
+        .eq('unidade_id', ordem.unidade_id)
+        .eq('ativo', true)
+        .maybeSingle<{ id: string; nome: string }>()
+
+      if (gerente) {
+        const { error: bonusError } = await admin.from('comissoes').insert({
+          vendedor_nome: gerente.nome,
+          consultor_id: gerente.id,
+          unidade_id: ordem.unidade_id,
+          ordem_servico_id: id,
+          tipo: 'bonus_gerencia',
+          referencia: `Bônus gerência — venda de ${ordem.vendedor?.nome ?? 'consultor'} (${ordem.veiculo_marca} ${ordem.veiculo_modelo})`,
+          valor: bonusGerente,
+          data: ordem.data_venda,
+        })
+        if (bonusError && bonusError.code !== '23505') {
+          console.error('Falha ao lançar bônus de gerência', bonusError)
+        }
+      }
     }
   }
 
