@@ -20,6 +20,26 @@ type MetaRow = {
   profiles: { nome: string } | null
 }
 
+function MetaGrupo({ periodo, lista }: { periodo: string; lista: MetaRow[] }) {
+  return (
+    <div>
+      <p className="border-t border-[var(--border)] bg-white/5 px-4 py-2 text-[.7rem] font-bold uppercase tracking-wide text-[var(--text-muted)]">
+        {mesLabel(periodo)}
+      </p>
+      {lista.map((m) => (
+        <div key={m.id} className="flex items-center justify-between gap-3 border-t border-[var(--border)] px-4 py-3">
+          <p className="normal-case text-white">
+            {m.escopo === 'empresa' && 'Empresa'}
+            {m.escopo === 'unidade' && (m.unidades?.nome ?? '—')}
+            {m.escopo === 'consultor' && (m.profiles?.nome ?? '—')}
+          </p>
+          <p className="font-bold text-white">{m.valor_meta} vendas</p>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 export default async function DefinirMetasPage({
   searchParams,
 }: {
@@ -75,6 +95,13 @@ export default async function DefinirMetasPage({
     lista.push(m)
     metasPorPeriodo.set(m.periodo, lista)
   }
+
+  // Mês atual sempre visível; os anteriores ficam escondidos atrás de "Ver
+  // meses anteriores" — a lista tava crescendo mês após mês e virando um
+  // scroll enorme por padrão.
+  const mesCorrente = mesAtualISO()
+  const gruposAtual = [...metasPorPeriodo.entries()].filter(([periodo]) => periodo === mesCorrente)
+  const gruposAnteriores = [...metasPorPeriodo.entries()].filter(([periodo]) => periodo !== mesCorrente)
 
   return (
     <>
@@ -171,26 +198,25 @@ export default async function DefinirMetasPage({
                 <div className="empty-state">Nenhuma meta definida ainda.</div>
               ) : (
                 <div className="flex flex-col">
-                  {[...metasPorPeriodo.entries()].map(([periodo, lista]) => (
-                    <div key={periodo}>
-                      <p className="border-t border-[var(--border)] bg-white/5 px-4 py-2 text-[.7rem] font-bold uppercase tracking-wide text-[var(--text-muted)]">
-                        {mesLabel(periodo)}
-                      </p>
-                      {lista.map((m) => (
-                        <div
-                          key={m.id}
-                          className="flex items-center justify-between gap-3 border-t border-[var(--border)] px-4 py-3"
-                        >
-                          <p className="normal-case text-white">
-                            {m.escopo === 'empresa' && 'Empresa'}
-                            {m.escopo === 'unidade' && (m.unidades?.nome ?? '—')}
-                            {m.escopo === 'consultor' && (m.profiles?.nome ?? '—')}
-                          </p>
-                          <p className="font-bold text-white">{m.valor_meta} vendas</p>
-                        </div>
-                      ))}
-                    </div>
+                  {gruposAtual.length === 0 && (
+                    <p className="px-4 py-3 text-[.75rem] normal-case text-[var(--text-muted)]">
+                      Nenhuma meta definida pra {mesLabel(mesCorrente)} ainda.
+                    </p>
+                  )}
+                  {gruposAtual.map(([periodo, lista]) => (
+                    <MetaGrupo key={periodo} periodo={periodo} lista={lista} />
                   ))}
+
+                  {gruposAnteriores.length > 0 && (
+                    <details>
+                      <summary className="cursor-pointer select-none border-t border-[var(--border)] px-4 py-3 text-[.75rem] font-bold text-[var(--coral)]">
+                        Ver meses anteriores ({gruposAnteriores.length})
+                      </summary>
+                      {gruposAnteriores.map(([periodo, lista]) => (
+                        <MetaGrupo key={periodo} periodo={periodo} lista={lista} />
+                      ))}
+                    </details>
+                  )}
                 </div>
               )}
             </div>
