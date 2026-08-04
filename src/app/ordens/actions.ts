@@ -167,6 +167,7 @@ async function buildOrdemFields(supabase: SupabaseServerClient, formData: FormDa
       numero_venda: text(formData, 'numero_venda'),
       retorno: text(formData, 'retorno'),
       revenda: tipo === 'venda' && formData.get('revenda') === 'on',
+      over: tipo === 'venda' ? money(formData, 'over') : 0,
       cliente_nome,
       cliente_cpf_cnpj: text(formData, 'cliente_cpf_cnpj'),
       cliente_rg: text(formData, 'cliente_rg'),
@@ -307,6 +308,8 @@ type OrdemAprovadaResumo = {
   data_entrega: string | null
   revenda: boolean
   valor_total: number
+  desconto: number
+  over: number
   data_venda: string
   vendedor: { nome: string } | null
 }
@@ -325,7 +328,7 @@ export async function aprovarOrdem(formData: FormData) {
     .eq('id', id)
     .select(
       `tipo, cliente_nome, veiculo_marca, veiculo_modelo, veiculo_placa, veiculo_km, unidade_id, consultor_id,
-       manutencao, data_entrega, revenda, valor_total, data_venda,
+       manutencao, data_entrega, revenda, valor_total, desconto, over, data_venda,
        vendedor:profiles!ordens_servico_consultor_id_fkey(nome)`
     )
     .single<OrdemAprovadaResumo>()
@@ -346,6 +349,8 @@ export async function aprovarOrdem(formData: FormData) {
       marca: ordem.veiculo_marca,
       modelo: ordem.veiculo_modelo,
       valorTotal: Number(ordem.valor_total),
+      desconto: Number(ordem.desconto),
+      over: Number(ordem.over),
     })
 
     const { error: comissaoError } = await admin.from('comissoes').insert({

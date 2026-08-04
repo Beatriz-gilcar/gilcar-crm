@@ -33,6 +33,7 @@ export type OrdemFormDefaults = {
   origem_cliente: string
   numero_venda: string
   revenda: boolean
+  over: string
   retorno: string
   cliente_nome: string
   cliente_cpf_cnpj: string
@@ -166,6 +167,7 @@ export function OrdemForm({
 
   const [valorTotal, setValorTotal] = useState(defaults.valor_total)
   const [desconto, setDesconto] = useState(defaults.desconto)
+  const [over, setOver] = useState(defaults.over)
   const [valorFinanciado, setValorFinanciado] = useState(defaults.valor_financiado)
 
   const [pagamentos, setPagamentos] = useState<Record<string, string>>(defaults.pagamentos)
@@ -230,6 +232,7 @@ export function OrdemForm({
       <input type="hidden" name="veiculo_fonte" value={fonte} />
       <input type="hidden" name="cliente_endereco" value={endereco} />
       <input type="hidden" name="desconto" value={temDesconto ? desconto : ''} />
+      <input type="hidden" name="over" value={isVenda ? over : ''} />
       <input type="hidden" name="tem_troca" value={trocasSubmit.length > 0 ? 'sim' : 'nao'} />
       <input type="hidden" name="trocas_json" value={JSON.stringify(trocasSubmit)} />
       <input type="hidden" name="manutencao_itens_json" value={JSON.stringify(manutencaoItensSubmit)} />
@@ -488,6 +491,16 @@ export function OrdemForm({
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label>Valor do desconto</label>
               <Moeda value={desconto} onChange={setDesconto} />
+            </div>
+          )}
+
+          {isVenda && (
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label>Over (vendeu acima do estipulado)</label>
+              <Moeda value={over} onChange={setOver} />
+              <p className="mt-1 text-[.68rem] normal-case text-[var(--text-muted)]">
+                Metade desse valor vira comissão extra do consultor quando a venda for aprovada.
+              </p>
             </div>
           )}
 
