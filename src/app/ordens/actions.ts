@@ -8,6 +8,7 @@ import { addBusinessDaysISO, addMonthsISO } from '@/lib/business-days'
 import { formaPagamentoLabel } from '@/lib/ordens'
 import { parseBRL } from '@/lib/mask'
 import { isGerenciaCargo } from '@/lib/membros'
+import { calcularComissao } from '@/lib/comissao'
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>
 
@@ -165,6 +166,7 @@ async function buildOrdemFields(supabase: SupabaseServerClient, formData: FormDa
       origem_cliente: text(formData, 'origem_cliente'),
       numero_venda: text(formData, 'numero_venda'),
       retorno: text(formData, 'retorno'),
+      revenda: tipo === 'venda' && formData.get('revenda') === 'on',
       cliente_nome,
       cliente_cpf_cnpj: text(formData, 'cliente_cpf_cnpj'),
       cliente_rg: text(formData, 'cliente_rg'),
@@ -303,6 +305,10 @@ type OrdemAprovadaResumo = {
   consultor_id: string
   manutencao: string | null
   data_entrega: string | null
+  revenda: boolean
+  valor_total: number
+  data_venda: string
+  vendedor: { nome: string } | null
 }
 
 export async function aprovarOrdem(formData: FormData) {
@@ -318,12 +324,44 @@ export async function aprovarOrdem(formData: FormData) {
     .update({ status: 'aprovada', aprovado_por: user?.id, aprovado_em: new Date().toISOString() })
     .eq('id', id)
     .select(
-      'tipo, cliente_nome, veiculo_marca, veiculo_modelo, veiculo_placa, veiculo_km, unidade_id, consultor_id, manutencao, data_entrega'
+      `tipo, cliente_nome, veiculo_marca, veiculo_modelo, veiculo_placa, veiculo_km, unidade_id, consultor_id,
+       manutencao, data_entrega, revenda, valor_total, data_venda,
+       vendedor:profiles!ordens_servico_consultor_id_fkey(nome)`
     )
     .single<OrdemAprovadaResumo>()
 
   if (error) {
     redirect(`/ordens/${id}?error=${encodeURIComponent('Não foi possível aprovar a ordem')}`)
+  }
+
+  // Comissão automática (venda ou compra) — mesma base do Gestão Gilcar
+  // (banco compartilhado), por isso escreve direto na tabela comissoes com o
+  // client admin. ordem_servico_id evita duplicar se essa aprovação rodar de
+  // novo pra mesma ordem (índice único lá do lado do Gestão Gilcar).
+  if (ordem && (ordem.tipo === 'venda' || ordem.tipo === 'compra')) {
+    const admin = createAdminClient()
+    const { valor, descricao } = calcularComissao({
+      tipoOrdem: ordem.tipo,
+      revenda: ordem.revenda,
+      marca: ordem.veiculo_marca,
+      modelo: ordem.veiculo_modelo,
+      valorTotal: Number(ordem.valor_total),
+    })
+
+    const { error: comissaoError } = await admin.from('comissoes').insert({
+      vendedor_nome: ordem.vendedor?.nome ?? 'Consultor',
+      consultor_id: ordem.consultor_id,
+      unidade_id: ordem.unidade_id,
+      ordem_servico_id: id,
+      referencia: descricao,
+      valor,
+      data: ordem.data_venda,
+    })
+    // Erro aqui (ex.: complemento já lançado por reaprovação) não trava a
+    // aprovação da ordem — o financeiro ajusta na mão em Gestão Gilcar.
+    if (comissaoError && comissaoError.code !== '23505') {
+      console.error('Falha ao lançar comissão automática', comissaoError)
+    }
   }
 
   // Venda aprovada já nasce no Pós-venda sozinha — a Luciana não precisa

@@ -32,6 +32,7 @@ export type OrdemFormDefaults = {
   unidade_id: string
   origem_cliente: string
   numero_venda: string
+  revenda: boolean
   retorno: string
   cliente_nome: string
   cliente_cpf_cnpj: string
@@ -255,6 +256,13 @@ export function OrdemForm({
               ]}
             />
           </div>
+
+          {isVenda && (
+            <label className="flex items-center gap-2 text-[.78rem] normal-case text-[var(--text-muted)]">
+              <input type="checkbox" name="revenda" defaultChecked={defaults.revenda} style={{ width: 'auto' }} />
+              Revenda (comissão fixa de R$ 500, em vez do padrão por valor)
+            </label>
+          )}
 
           <div className="grid2">
             <div className="form-group" style={{ marginBottom: 0 }}>

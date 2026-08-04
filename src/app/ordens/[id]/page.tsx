@@ -19,6 +19,7 @@ type OrdemDetail = {
   origem_cliente: string | null
   numero_venda: string | null
   retorno: string | null
+  revenda: boolean
   cliente_nome: string
   cliente_cpf_cnpj: string | null
   cliente_rg: string | null
@@ -125,7 +126,7 @@ export default async function OrdemDetailPage({
   const { data: ordem } = await supabase
     .from('ordens_servico')
     .select(
-      `id, tipo, unidade_id, origem_cliente, numero_venda, retorno,
+      `id, tipo, unidade_id, origem_cliente, numero_venda, retorno, revenda,
        cliente_nome, cliente_cpf_cnpj, cliente_rg, cliente_cep, cliente_numero, cliente_endereco, cliente_celular, cliente_email,
        veiculo_id, veiculo_marca, veiculo_modelo, veiculo_ano, veiculo_placa, veiculo_cor, veiculo_km, manutencao, observacao,
        valor_total, desconto, tem_troca, troca_marca, troca_modelo, troca_ano, troca_placa,
@@ -253,6 +254,7 @@ export default async function OrdemDetailPage({
     origem_cliente: ordem.origem_cliente ?? '',
     numero_venda: ordem.numero_venda ?? '',
     retorno: ordem.retorno ?? '',
+    revenda: ordem.revenda,
     cliente_nome: ordem.cliente_nome,
     cliente_cpf_cnpj: ordem.cliente_cpf_cnpj ? maskCpfCnpj(ordem.cliente_cpf_cnpj) : '',
     cliente_rg: ordem.cliente_rg ? maskRgRj(ordem.cliente_rg) : '',

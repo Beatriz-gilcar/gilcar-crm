@@ -79,6 +79,7 @@ export default async function NewOrdemPage({
     unidade_id: '',
     origem_cliente: '',
     numero_venda: '',
+    revenda: false,
     retorno: '',
     cliente_nome: cliente ?? '',
     cliente_cpf_cnpj: '',
