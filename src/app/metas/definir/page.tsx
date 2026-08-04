@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { Topbar } from '@/components/Topbar'
 import { ToggleGroup } from '@/components/ToggleGroup'
-import { mesAtualISO } from '@/lib/metas'
+import { mesAtualISO, mesLabel } from '@/lib/metas'
 import { definirMeta } from '../actions'
 
 type ProfileSummary = { nome: string; cargo: string }
@@ -65,6 +65,16 @@ export default async function DefinirMetasPage({
     .overrideTypes<MetaRow[]>()
 
   const metas = metasData ?? []
+
+  // Lista vinha tudo junto (todo período misturado), parecendo que as metas
+  // se acumulavam mês a mês. Agrupa por período (a query já vem ordenada por
+  // periodo desc) só pra separar visualmente cada mês.
+  const metasPorPeriodo = new Map<string, MetaRow[]>()
+  for (const m of metas) {
+    const lista = metasPorPeriodo.get(m.periodo) ?? []
+    lista.push(m)
+    metasPorPeriodo.set(m.periodo, lista)
+  }
 
   return (
     <>
@@ -161,20 +171,24 @@ export default async function DefinirMetasPage({
                 <div className="empty-state">Nenhuma meta definida ainda.</div>
               ) : (
                 <div className="flex flex-col">
-                  {metas.map((m) => (
-                    <div
-                      key={m.id}
-                      className="flex items-center justify-between gap-3 border-t border-[var(--border)] px-4 py-3 first:border-t-0"
-                    >
-                      <div>
-                        <p className="normal-case text-white">
-                          {m.escopo === 'empresa' && 'Empresa'}
-                          {m.escopo === 'unidade' && (m.unidades?.nome ?? '—')}
-                          {m.escopo === 'consultor' && (m.profiles?.nome ?? '—')}
-                        </p>
-                        <p className="text-[.7rem] normal-case text-[var(--text-muted)]">{m.periodo}</p>
-                      </div>
-                      <p className="font-bold text-white">{m.valor_meta} vendas</p>
+                  {[...metasPorPeriodo.entries()].map(([periodo, lista]) => (
+                    <div key={periodo}>
+                      <p className="border-t border-[var(--border)] bg-white/5 px-4 py-2 text-[.7rem] font-bold uppercase tracking-wide text-[var(--text-muted)]">
+                        {mesLabel(periodo)}
+                      </p>
+                      {lista.map((m) => (
+                        <div
+                          key={m.id}
+                          className="flex items-center justify-between gap-3 border-t border-[var(--border)] px-4 py-3"
+                        >
+                          <p className="normal-case text-white">
+                            {m.escopo === 'empresa' && 'Empresa'}
+                            {m.escopo === 'unidade' && (m.unidades?.nome ?? '—')}
+                            {m.escopo === 'consultor' && (m.profiles?.nome ?? '—')}
+                          </p>
+                          <p className="font-bold text-white">{m.valor_meta} vendas</p>
+                        </div>
+                      ))}
                     </div>
                   ))}
                 </div>
