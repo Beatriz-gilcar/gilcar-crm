@@ -83,7 +83,16 @@ export default async function PosVendaPage({
       />
       <div className="flex flex-1 flex-col gap-6 px-4 py-8 sm:px-10">
         <div className="mx-auto w-full max-w-5xl">
-          <div className="flex items-center justify-between">
+          <div className="chip-row">
+            <Link href="/pos-venda" className="toggle-btn ativo">
+              Registros
+            </Link>
+            <Link href="/pos-venda/lancamentos" className="toggle-btn">
+              Lançamentos
+            </Link>
+          </div>
+
+          <div className="mt-3 flex items-center justify-between">
             <div className="sec-title" style={{ borderBottom: 'none', paddingBottom: 0 }}>
               Pós-venda
             </div>

@@ -10,6 +10,7 @@ type NavKey =
   | 'estoque'
   | 'ordens'
   | 'pos-venda'
+  | 'abastecimento'
   | 'metas'
   | 'premiacao'
   | 'sdr'
@@ -49,6 +50,7 @@ export function Topbar({
     : [
         { key: 'ficha', href: '/ficha', label: 'Ficha' },
         { key: 'rotina', href: '/rotina', label: 'Rotina do Dia' },
+        { key: 'abastecimento', href: '/abastecimento', label: 'Abastecimento' },
         { key: 'estoque', href: '/estoque', label: 'Estoque' },
         { key: 'ordens', href: '/ordens', label: 'Ordens' },
         { key: 'pos-venda', href: '/pos-venda', label: 'Pós-venda' },

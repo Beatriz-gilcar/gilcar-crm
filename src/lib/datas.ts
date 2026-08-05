@@ -16,3 +16,14 @@ export function horaBR(iso: string): string {
 export function dataHoraBR(iso: string): string {
   return new Date(iso).toLocaleString('pt-BR', { timeZone: TZ })
 }
+
+// "Agora" na loja (Brasília) pra código que roda no servidor (Vercel = UTC) e
+// precisa decidir o dia da semana ou a data corrente — mesma técnica do cron
+// de lembretes (src/app/api/cron/lembretes/route.ts).
+export function agoraNaLoja(): Date {
+  return new Date(Date.now() - 3 * 60 * 60 * 1000)
+}
+
+export const diasSemana = [
+  'Domingo', 'Segunda-feira', 'Terça-feira', 'Quarta-feira', 'Quinta-feira', 'Sexta-feira', 'Sábado',
+]

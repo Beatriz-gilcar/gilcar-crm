@@ -4,6 +4,7 @@ import "./globals.css";
 import { CorridaMeta } from "@/components/CorridaMeta";
 import { LembretesWidget } from "@/components/LembretesWidget";
 import { RotinaAlertWidget } from "@/components/RotinaAlertWidget";
+import { AbastecimentoAlertWidget } from "@/components/AbastecimentoAlertWidget";
 
 const playfair = Playfair_Display({
   variable: "--font-playfair",
@@ -34,6 +35,7 @@ export default function RootLayout({
         <CorridaMeta />
         <LembretesWidget />
         <RotinaAlertWidget />
+        <AbastecimentoAlertWidget />
       </body>
     </html>
   );
