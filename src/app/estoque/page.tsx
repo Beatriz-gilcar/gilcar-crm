@@ -93,12 +93,25 @@ function VeiculoRow({ veiculo, canEdit }: { veiculo: Veiculo; canEdit: boolean }
   )
 }
 
+function hrefComTipo(
+  atuais: { status?: string; unidade_id?: string; busca?: string },
+  tipo: string
+): string {
+  const qs = new URLSearchParams()
+  if (atuais.status) qs.set('status', atuais.status)
+  if (atuais.unidade_id) qs.set('unidade_id', atuais.unidade_id)
+  if (atuais.busca) qs.set('busca', atuais.busca)
+  if (tipo) qs.set('tipo', tipo)
+  const s = qs.toString()
+  return s ? `/estoque?${s}` : '/estoque'
+}
+
 export default async function EstoquePage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; unidade_id?: string; busca?: string; error?: string }>
+  searchParams: Promise<{ status?: string; unidade_id?: string; busca?: string; tipo?: string; error?: string }>
 }) {
-  const { status, unidade_id, busca, error } = await searchParams
+  const { status, unidade_id, busca, tipo, error } = await searchParams
   const supabase = await createClient()
 
   const {
@@ -150,6 +163,8 @@ export default async function EstoquePage({
   // comissão (ehMoto), sem precisar de coluna nova nem de digitar de novo.
   const carros = veiculos.filter((v) => !ehMoto(v.marca, v.modelo))
   const motos = veiculos.filter((v) => ehMoto(v.marca, v.modelo))
+  const tipoAtivo = tipo === 'carro' || tipo === 'moto' ? tipo : ''
+  const paramsAtuais = { status, unidade_id, busca }
 
   return (
     <>
@@ -190,6 +205,18 @@ export default async function EstoquePage({
             </Link>
           </div>
 
+          <div className="chip-row mt-3">
+            <Link href={hrefComTipo(paramsAtuais, '')} className={`toggle-btn ${tipoAtivo === '' ? 'ativo' : ''}`}>
+              Todos ({veiculos.length})
+            </Link>
+            <Link href={hrefComTipo(paramsAtuais, 'carro')} className={`toggle-btn ${tipoAtivo === 'carro' ? 'ativo' : ''}`}>
+              🚗 Carros ({carros.length})
+            </Link>
+            <Link href={hrefComTipo(paramsAtuais, 'moto')} className={`toggle-btn ${tipoAtivo === 'moto' ? 'ativo' : ''}`}>
+              🏍️ Motos ({motos.length})
+            </Link>
+          </div>
+
           <div className="card sec-pad mt-3">
             {error && (
               <p className="mb-3 rounded-2xl bg-[var(--danger-soft)] px-3 py-2 text-[.78rem] normal-case text-[var(--danger)]">
@@ -197,6 +224,7 @@ export default async function EstoquePage({
               </p>
             )}
             <form className="flex flex-col gap-3" method="get">
+              <input type="hidden" name="tipo" value={tipoAtivo} />
               <div className="filtros">
                 <div className="search-wrap">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -231,7 +259,7 @@ export default async function EstoquePage({
           </div>
 
           <div className="mt-4">
-            {veiculos.length === 0 ? (
+            {(tipoAtivo === 'carro' ? carros : tipoAtivo === 'moto' ? motos : veiculos).length === 0 ? (
               <div className="card empty-state">Nenhum veículo encontrado.</div>
             ) : (
               // Tabela em linha, como o estoque do sistema antigo. Usa
@@ -259,28 +287,48 @@ export default async function EstoquePage({
                     </tr>
                   </thead>
                   <tbody>
-                    {carros.length > 0 && (
+                    {tipoAtivo === 'carro' &&
+                      carros.map((veiculo) => (
+                        <VeiculoRow
+                          key={veiculo.id}
+                          veiculo={veiculo}
+                          canEdit={isAdmin || veiculo.unidade_id === profile?.unidade_id}
+                        />
+                      ))}
+                    {tipoAtivo === 'moto' &&
+                      motos.map((veiculo) => (
+                        <VeiculoRow
+                          key={veiculo.id}
+                          veiculo={veiculo}
+                          canEdit={isAdmin || veiculo.unidade_id === profile?.unidade_id}
+                        />
+                      ))}
+                    {tipoAtivo === '' && (
                       <>
-                        <GrupoHeader titulo="🚗 Carros" total={carros.length} />
-                        {carros.map((veiculo) => (
-                          <VeiculoRow
-                            key={veiculo.id}
-                            veiculo={veiculo}
-                            canEdit={isAdmin || veiculo.unidade_id === profile?.unidade_id}
-                          />
-                        ))}
-                      </>
-                    )}
-                    {motos.length > 0 && (
-                      <>
-                        <GrupoHeader titulo="🏍️ Motos" total={motos.length} />
-                        {motos.map((veiculo) => (
-                          <VeiculoRow
-                            key={veiculo.id}
-                            veiculo={veiculo}
-                            canEdit={isAdmin || veiculo.unidade_id === profile?.unidade_id}
-                          />
-                        ))}
+                        {carros.length > 0 && (
+                          <>
+                            <GrupoHeader titulo="🚗 Carros" total={carros.length} />
+                            {carros.map((veiculo) => (
+                              <VeiculoRow
+                                key={veiculo.id}
+                                veiculo={veiculo}
+                                canEdit={isAdmin || veiculo.unidade_id === profile?.unidade_id}
+                              />
+                            ))}
+                          </>
+                        )}
+                        {motos.length > 0 && (
+                          <>
+                            <GrupoHeader titulo="🏍️ Motos" total={motos.length} />
+                            {motos.map((veiculo) => (
+                              <VeiculoRow
+                                key={veiculo.id}
+                                veiculo={veiculo}
+                                canEdit={isAdmin || veiculo.unidade_id === profile?.unidade_id}
+                              />
+                            ))}
+                          </>
+                        )}
                       </>
                     )}
                   </tbody>
