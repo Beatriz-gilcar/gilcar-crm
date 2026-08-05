@@ -99,6 +99,15 @@ export function RotinaAlertWidget() {
     return () => clearInterval(id)
   }, [pendentes])
 
+  // Repete o bipe tipo alarme enquanto o aviso não for dispensado — um bipe só
+  // não chama atenção o suficiente no barulho da loja.
+  const temPendente = disparados.length > 0
+  useEffect(() => {
+    if (!temPendente) return
+    const id = setInterval(bip, 8000)
+    return () => clearInterval(id)
+  }, [temPendente])
+
   if (disparados.length === 0) return null
 
   return (
