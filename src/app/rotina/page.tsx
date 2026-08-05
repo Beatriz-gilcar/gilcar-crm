@@ -137,7 +137,6 @@ export default async function RotinaPage({
                 <table className="w-full text-[.8rem]">
                   <thead>
                     <tr className="text-left text-[.68rem] text-[var(--text-muted)]">
-                      <th className="px-4 py-2 font-bold">Hora</th>
                       <th className="px-4 py-2 font-bold">Tarefa</th>
                       <th className="px-4 py-2 font-bold">Status</th>
                     </tr>
@@ -148,12 +147,11 @@ export default async function RotinaPage({
                       return (
                         <tr key={item.id} className="border-t border-[var(--border)]">
                           <td
-                            className="whitespace-nowrap px-4 py-3 font-bold"
-                            style={{ color: item.destaque ? 'var(--coral)' : 'var(--text-muted)' }}
+                            className="px-4 py-3 normal-case font-bold"
+                            style={{ color: item.destaque ? 'var(--coral)' : 'white' }}
                           >
-                            {item.hora}
+                            {item.tarefa}
                           </td>
-                          <td className="px-4 py-3 normal-case text-white">{item.tarefa}</td>
                           <td className="px-4 py-3">
                             {feito ? (
                               <div className="flex flex-wrap items-center gap-2">
