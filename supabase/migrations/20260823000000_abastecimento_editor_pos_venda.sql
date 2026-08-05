@@ -3,9 +3,12 @@
 -- pode_editar_pos_venda() (gerência + cargo pos_venda), a mesma função já
 -- usada pra tabela pos_venda e pos_venda_lancamentos.
 
-drop policy "abastecimento_config: só admin insere" on abastecimento_config;
-drop policy "abastecimento_config: só admin atualiza" on abastecimento_config;
-drop policy "abastecimento_config: só admin exclui" on abastecimento_config;
+drop policy if exists "abastecimento_config: só admin insere" on abastecimento_config;
+drop policy if exists "abastecimento_config: só admin atualiza" on abastecimento_config;
+drop policy if exists "abastecimento_config: só admin exclui" on abastecimento_config;
+drop policy if exists "abastecimento_config: só editores inserem" on abastecimento_config;
+drop policy if exists "abastecimento_config: só editores atualizam" on abastecimento_config;
+drop policy if exists "abastecimento_config: só editores excluem" on abastecimento_config;
 
 create policy "abastecimento_config: só editores inserem"
   on abastecimento_config for insert
