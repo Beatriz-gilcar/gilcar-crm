@@ -3,6 +3,7 @@ import { Playfair_Display, Inter } from "next/font/google";
 import "./globals.css";
 import { CorridaMeta } from "@/components/CorridaMeta";
 import { LembretesWidget } from "@/components/LembretesWidget";
+import { RotinaAlertWidget } from "@/components/RotinaAlertWidget";
 
 const playfair = Playfair_Display({
   variable: "--font-playfair",
@@ -32,6 +33,7 @@ export default function RootLayout({
         {children}
         <CorridaMeta />
         <LembretesWidget />
+        <RotinaAlertWidget />
       </body>
     </html>
   );
