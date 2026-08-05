@@ -4,7 +4,7 @@ import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 
-async function requireAdmin() {
+async function requireEditor() {
   const supabase = await createClient()
 
   const {
@@ -19,13 +19,15 @@ async function requireAdmin() {
     .eq('id', user.id)
     .single<{ cargo: string }>()
 
-  if (profile?.cargo !== 'admin') redirect('/abastecimento')
+  // Quem define o dia de abastecimento: a Luciana (pos_venda, quem cuida
+  // disso de fato) e o admin.
+  if (profile?.cargo !== 'pos_venda' && profile?.cargo !== 'admin') redirect('/abastecimento')
 
   return supabase
 }
 
 export async function salvarDiaAbastecimento(formData: FormData) {
-  const supabase = await requireAdmin()
+  const supabase = await requireEditor()
 
   const unidade_id = formData.get('unidade_id') as string
   const dia_semana = Number(formData.get('dia_semana'))

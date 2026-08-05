@@ -43,6 +43,9 @@ export default async function AbastecimentoPage({
 
   const verTudo = podeVerTudo(profile?.cargo)
   const isAdmin = profile?.cargo === 'admin'
+  // Quem define o dia de abastecimento: a Luciana (pos_venda, quem cuida
+  // disso de fato) e o admin.
+  const podeEditar = isAdmin || profile?.cargo === 'pos_venda'
 
   const { data: unidadesData } = await supabase.from('unidades').select('id, nome').order('nome')
   const unidades = (unidadesData ?? []) as Unidade[]
@@ -92,7 +95,7 @@ export default async function AbastecimentoPage({
                         : 'Dia ainda não definido'}
                     </p>
                   </div>
-                  {isAdmin && (
+                  {podeEditar && (
                     <form action={salvarDiaAbastecimento} className="flex items-center gap-2">
                       <input type="hidden" name="unidade_id" value={u.id} />
                       <select name="dia_semana" defaultValue={diaAtual ?? ''}>
