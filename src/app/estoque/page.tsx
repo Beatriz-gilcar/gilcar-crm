@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { Topbar } from '@/components/Topbar'
 import { ConfirmButton } from '@/components/ConfirmButton'
 import { ToggleGroup } from '@/components/ToggleGroup'
-import { statusLabel, statusBadgeClass, cambioLabel } from '@/lib/veiculos'
+import { statusLabel, statusBadgeClass, cambioLabel, ehMoto } from '@/lib/veiculos'
 import { deleteVeiculo } from './actions'
 import { podeVerTudo } from '@/lib/membros'
 
@@ -27,6 +27,71 @@ type Veiculo = {
 
 type ProfileSummary = { nome: string; cargo: string; unidade_id: string | null }
 type Unidade = { id: string; nome: string }
+
+function GrupoHeader({ titulo, total }: { titulo: string; total: number }) {
+  return (
+    <tr className="border-t border-[var(--border)] bg-white/[.03]">
+      <td colSpan={13} className="px-2 py-1.5 text-[.68rem] font-bold uppercase tracking-wide text-[var(--text-muted)]">
+        {titulo} ({total})
+      </td>
+    </tr>
+  )
+}
+
+function VeiculoRow({ veiculo, canEdit }: { veiculo: Veiculo; canEdit: boolean }) {
+  // Blindado é nullable de propósito (89 registros sem informação): "—"
+  // distingue "não sei" de "não é".
+  const simNao = (v: boolean | null) => (v === null ? '—' : v ? 'Sim' : 'Não')
+  return (
+    <tr className="border-t border-[var(--border)] hover:bg-white/[.02]">
+      <td className="px-2 py-2.5 font-semibold text-white">
+        {veiculo.marca} {veiculo.modelo}
+      </td>
+      <td className="px-2 py-2.5 normal-case text-[var(--text-muted)]">{cambioLabel[veiculo.cambio]}</td>
+      <td className="px-2 py-2.5 text-[var(--text-muted)]">{veiculo.gnv ? 'Sim' : 'Não'}</td>
+      <td className="px-2 py-2.5 text-[var(--text-muted)]">{simNao(veiculo.blindado)}</td>
+      <td className="px-2 py-2.5 normal-case text-[var(--text-muted)]">{veiculo.cor ?? '—'}</td>
+      <td className="px-2 py-2.5 text-[var(--text-muted)]">{veiculo.ano ?? '—'}</td>
+      <td className="px-2 py-2.5 text-white">{veiculo.placa ?? '—'}</td>
+      <td className="px-2 py-2.5 text-[var(--text-muted)]">{veiculo.no_site ? 'Sim' : 'Não'}</td>
+      <td className="px-2 py-2.5 text-[var(--text-muted)]">{veiculo.licenciado_ate ?? '—'}</td>
+      <td className="px-2 py-2.5 normal-case text-[var(--text-muted)]">{veiculo.unidades?.nome ?? '—'}</td>
+      <td className="px-2 py-2.5">
+        <span className={`badge ${statusBadgeClass[veiculo.status]}`}>{statusLabel[veiculo.status]}</span>
+      </td>
+      <td
+        className="max-w-[150px] truncate px-2 py-2.5 normal-case text-[var(--text-muted)]"
+        title={veiculo.observacao ?? undefined}
+      >
+        {veiculo.observacao ?? '—'}
+      </td>
+      <td className="px-2 py-2.5 text-right">
+        <div className="flex items-center justify-end gap-3">
+          {canEdit ? (
+            <>
+              <Link href={`/estoque/${veiculo.id}`} className="font-bold text-[var(--text-muted)] hover:text-white">
+                Editar
+              </Link>
+              <form action={deleteVeiculo}>
+                <input type="hidden" name="id" value={veiculo.id} />
+                <ConfirmButton
+                  className="font-bold text-[var(--danger)] hover:underline"
+                  confirmMessage={`Remover ${veiculo.marca} ${veiculo.modelo} (${veiculo.placa ?? 'sem placa'}) do estoque?`}
+                >
+                  Excluir
+                </ConfirmButton>
+              </form>
+            </>
+          ) : (
+            <Link href={`/estoque/${veiculo.id}`} className="text-[var(--text-muted)] hover:text-white">
+              Ver
+            </Link>
+          )}
+        </div>
+      </td>
+    </tr>
+  )
+}
 
 export default async function EstoquePage({
   searchParams,
@@ -79,6 +144,12 @@ export default async function EstoquePage({
 
   const { data: veiculosData } = await query.overrideTypes<Veiculo[]>()
   const veiculos = veiculosData ?? []
+
+  // Separador visual carro/moto — o cadastro não tem um campo "tipo", então
+  // classifica pela mesma heurística de marca/modelo usada no cálculo de
+  // comissão (ehMoto), sem precisar de coluna nova nem de digitar de novo.
+  const carros = veiculos.filter((v) => !ehMoto(v.marca, v.modelo))
+  const motos = veiculos.filter((v) => ehMoto(v.marca, v.modelo))
 
   return (
     <>
@@ -188,73 +259,30 @@ export default async function EstoquePage({
                     </tr>
                   </thead>
                   <tbody>
-                    {veiculos.map((veiculo) => {
-                      const canEdit = isAdmin || veiculo.unidade_id === profile?.unidade_id
-                      // Blindado é nullable de propósito (89 registros sem
-                      // informação): "—" distingue "não sei" de "não é".
-                      const simNao = (v: boolean | null) => (v === null ? '—' : v ? 'Sim' : 'Não')
-                      return (
-                        <tr key={veiculo.id} className="border-t border-[var(--border)] hover:bg-white/[.02]">
-                          <td className="px-2 py-2.5 font-semibold text-white">
-                            {veiculo.marca} {veiculo.modelo}
-                          </td>
-                          <td className="px-2 py-2.5 normal-case text-[var(--text-muted)]">
-                            {cambioLabel[veiculo.cambio]}
-                          </td>
-                          <td className="px-2 py-2.5 text-[var(--text-muted)]">{veiculo.gnv ? 'Sim' : 'Não'}</td>
-                          <td className="px-2 py-2.5 text-[var(--text-muted)]">{simNao(veiculo.blindado)}</td>
-                          <td className="px-2 py-2.5 normal-case text-[var(--text-muted)]">{veiculo.cor ?? '—'}</td>
-                          <td className="px-2 py-2.5 text-[var(--text-muted)]">{veiculo.ano ?? '—'}</td>
-                          <td className="px-2 py-2.5 text-white">{veiculo.placa ?? '—'}</td>
-                          <td className="px-2 py-2.5 text-[var(--text-muted)]">{veiculo.no_site ? 'Sim' : 'Não'}</td>
-                          <td className="px-2 py-2.5 text-[var(--text-muted)]">{veiculo.licenciado_ate ?? '—'}</td>
-                          <td className="px-2 py-2.5 normal-case text-[var(--text-muted)]">
-                            {veiculo.unidades?.nome ?? '—'}
-                          </td>
-                          <td className="px-2 py-2.5">
-                            <span className={`badge ${statusBadgeClass[veiculo.status]}`}>
-                              {statusLabel[veiculo.status]}
-                            </span>
-                          </td>
-                          <td
-                            className="max-w-[150px] truncate px-2 py-2.5 normal-case text-[var(--text-muted)]"
-                            title={veiculo.observacao ?? undefined}
-                          >
-                            {veiculo.observacao ?? '—'}
-                          </td>
-                          <td className="px-2 py-2.5 text-right">
-                            <div className="flex items-center justify-end gap-3">
-                              {canEdit ? (
-                                <>
-                                  <Link
-                                    href={`/estoque/${veiculo.id}`}
-                                    className="font-bold text-[var(--text-muted)] hover:text-white"
-                                  >
-                                    Editar
-                                  </Link>
-                                  <form action={deleteVeiculo}>
-                                    <input type="hidden" name="id" value={veiculo.id} />
-                                    <ConfirmButton
-                                      className="font-bold text-[var(--danger)] hover:underline"
-                                      confirmMessage={`Remover ${veiculo.marca} ${veiculo.modelo} (${veiculo.placa ?? 'sem placa'}) do estoque?`}
-                                    >
-                                      Excluir
-                                    </ConfirmButton>
-                                  </form>
-                                </>
-                              ) : (
-                                <Link
-                                  href={`/estoque/${veiculo.id}`}
-                                  className="text-[var(--text-muted)] hover:text-white"
-                                >
-                                  Ver
-                                </Link>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      )
-                    })}
+                    {carros.length > 0 && (
+                      <>
+                        <GrupoHeader titulo="🚗 Carros" total={carros.length} />
+                        {carros.map((veiculo) => (
+                          <VeiculoRow
+                            key={veiculo.id}
+                            veiculo={veiculo}
+                            canEdit={isAdmin || veiculo.unidade_id === profile?.unidade_id}
+                          />
+                        ))}
+                      </>
+                    )}
+                    {motos.length > 0 && (
+                      <>
+                        <GrupoHeader titulo="🏍️ Motos" total={motos.length} />
+                        {motos.map((veiculo) => (
+                          <VeiculoRow
+                            key={veiculo.id}
+                            veiculo={veiculo}
+                            canEdit={isAdmin || veiculo.unidade_id === profile?.unidade_id}
+                          />
+                        ))}
+                      </>
+                    )}
                   </tbody>
                 </table>
               </div>
