@@ -62,6 +62,7 @@ export default async function RotinaPage({
     .select('id, ordem, hora, tarefa, destaque, rotina_marcacoes(data, marcado_em, profiles(nome))')
     .eq('unidade_id', unidadeId)
     .eq('ativo', true)
+    .order('hora')
     .order('ordem')
     .overrideTypes<Item[]>()
 

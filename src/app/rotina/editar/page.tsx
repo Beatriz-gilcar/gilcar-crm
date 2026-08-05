@@ -44,6 +44,7 @@ export default async function EditarRotinaPage({
     .from('rotina_itens')
     .select('id, ordem, hora, tarefa, destaque, ativo')
     .eq('unidade_id', unidadeId)
+    .order('hora')
     .order('ordem')
     .overrideTypes<Item[]>()
 
