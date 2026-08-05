@@ -45,6 +45,7 @@ export function Topbar({
     : isPosVenda
     ? [
         { key: 'pos-venda', href: '/pos-venda', label: 'Pós-venda' },
+        { key: 'abastecimento', href: '/abastecimento', label: 'Abastecimento' },
         { key: 'estoque', href: '/estoque', label: 'Estoque' },
       ]
     : [
