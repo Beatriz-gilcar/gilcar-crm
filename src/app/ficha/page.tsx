@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { Topbar } from '@/components/Topbar'
 import { ConfirmButton } from '@/components/ConfirmButton'
+import { SubmitButton } from '@/components/SubmitButton'
 import { AtividadesDia } from '@/components/AtividadesDia'
 import { TelefoneInput } from '@/components/TelefoneInput'
 import { origemPresencialLabel, origemDigitalLabel } from '@/lib/atendimentos'
@@ -565,9 +566,7 @@ function FormAtendimento({ tipo, data }: { tipo: 'presencial' | 'digital'; data:
           <textarea name="observacao" rows={2} />
         </div>
 
-        <button type="submit" className="btn btn-red btn-sm self-start">
-          Enviar atendimento
-        </button>
+        <SubmitButton className="btn btn-red btn-sm self-start">Enviar atendimento</SubmitButton>
       </div>
     </form>
   )
