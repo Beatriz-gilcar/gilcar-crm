@@ -3,9 +3,53 @@
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { mesRange } from '@/lib/metas'
 import { parseBRL } from '@/lib/mask'
 import { isGerenciaCargo } from '@/lib/membros'
+
+// Comissão de seguro/proteção no Gestão Gilcar: metade do valor lançado, pro
+// consultor da venda. Mesmo banco Supabase (ver aprovarOrdem em
+// src/app/ordens/actions.ts pro mesmo padrão com ordens). Proteção lançada a
+// R$0 (placeholder antigo, só pra contar na meta) não gera comissão nenhuma.
+async function lancarComissaoProtecao(params: {
+  vendaProtecaoId: string
+  consultorId: string
+  unidadeId: string
+  cliente: string
+  placa: string | null
+  valor: number
+  data: string
+}) {
+  if (params.valor <= 0) return
+
+  const admin = createAdminClient()
+  const { data: vendedor } = await admin
+    .from('profiles')
+    .select('nome')
+    .eq('id', params.consultorId)
+    .single<{ nome: string }>()
+
+  const { error } = await admin.from('comissoes').insert({
+    vendedor_nome: vendedor?.nome ?? 'Consultor',
+    consultor_id: params.consultorId,
+    unidade_id: params.unidadeId,
+    venda_protecao_id: params.vendaProtecaoId,
+    tipo: 'protecao',
+    referencia: `Seguro — ${params.cliente}${params.placa ? ` (${params.placa})` : ''}`,
+    valor: Math.round((params.valor / 2) * 100) / 100,
+    data: params.data,
+  })
+
+  if (error && error.code !== '23505') {
+    console.error('Falha ao lançar comissão de proteção', error)
+  }
+}
+
+async function excluirComissaoProtecao(vendaProtecaoId: string) {
+  const admin = createAdminClient()
+  await admin.from('comissoes').delete().eq('venda_protecao_id', vendaProtecaoId)
+}
 
 type SupaClient = Awaited<ReturnType<typeof createClient>>
 
@@ -259,18 +303,34 @@ export async function createVendaProtecao(formData: FormData) {
     redirect(`/metas/protecao/new?error=${encodeURIComponent('O valor não pode ser negativo')}`)
   }
 
-  const { error } = await supabase.from('vendas_protecao').insert({
-    consultor_id,
-    unidade_id,
-    placa,
-    cliente,
-    valor,
-    data,
-    observacao,
-  })
+  const { data: protecao, error } = await supabase
+    .from('vendas_protecao')
+    .insert({
+      consultor_id,
+      unidade_id,
+      placa,
+      cliente,
+      valor,
+      data,
+      observacao,
+    })
+    .select('id')
+    .single<{ id: string }>()
 
   if (error) {
     redirect(`/metas/protecao/new?error=${encodeURIComponent('Não foi possível lançar a proteção')}`)
+  }
+
+  if (protecao) {
+    await lancarComissaoProtecao({
+      vendaProtecaoId: protecao.id,
+      consultorId: consultor_id,
+      unidadeId: unidade_id,
+      cliente,
+      placa,
+      valor,
+      data,
+    })
   }
 
   revalidatePath('/metas/protecao')
@@ -289,6 +349,30 @@ export async function toggleVendaProtecaoStatus(formData: FormData) {
     redirect(`/metas/protecao?error=${encodeURIComponent('Não foi possível atualizar o status')}`)
   }
 
+  // Proteção caída não é venda de verdade — some a comissão. Se voltar a
+  // ativa, relança do zero (mesma regra do lançamento inicial).
+  if (novoStatus === 'caida') {
+    await excluirComissaoProtecao(id)
+  } else {
+    const { data: protecao } = await supabase
+      .from('vendas_protecao')
+      .select('consultor_id, unidade_id, cliente, placa, valor, data')
+      .eq('id', id)
+      .single<{ consultor_id: string; unidade_id: string; cliente: string; placa: string | null; valor: number; data: string }>()
+
+    if (protecao) {
+      await lancarComissaoProtecao({
+        vendaProtecaoId: id,
+        consultorId: protecao.consultor_id,
+        unidadeId: protecao.unidade_id,
+        cliente: protecao.cliente,
+        placa: protecao.placa,
+        valor: Number(protecao.valor),
+        data: protecao.data,
+      })
+    }
+  }
+
   revalidatePath('/metas/protecao')
   redirect('/metas/protecao')
 }
@@ -296,6 +380,8 @@ export async function toggleVendaProtecaoStatus(formData: FormData) {
 export async function deleteVendaProtecao(formData: FormData) {
   const supabase = await createClient()
   const id = formData.get('id') as string
+
+  await excluirComissaoProtecao(id)
 
   const { error } = await supabase.from('vendas_protecao').delete().eq('id', id)
 
