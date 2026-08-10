@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { metaColor } from '@/lib/metas'
 
 type Item = { nome: string; realizado: number; meta: number }
@@ -9,17 +9,17 @@ type Dados = { lojas: Item[]; consultores: Item[] }
 const EMOJIS = ['🎉', '✨', '🎊', '🏁', '🥳', '⭐']
 
 function Confetti() {
-  // Peças fixas por render (não precisam mudar): posição/atraso/duração aleatórios.
-  const pecas = useMemo(
-    () =>
-      Array.from({ length: 60 }).map((_, i) => ({
-        key: i,
-        left: Math.random() * 100,
-        delay: Math.random() * 1.5,
-        dur: 2.6 + Math.random() * 2.2,
-        emoji: EMOJIS[i % EMOJIS.length],
-      })),
-    []
+  // Peças fixas pro tempo de vida do componente: posição/atraso/duração
+  // aleatórios sorteados uma vez só, no inicializador do useState — diferente
+  // de useMemo, essa função roda garantidamente uma única vez (na montagem).
+  const [pecas] = useState(() =>
+    Array.from({ length: 60 }).map((_, i) => ({
+      key: i,
+      left: Math.random() * 100,
+      delay: Math.random() * 1.5,
+      dur: 2.6 + Math.random() * 2.2,
+      emoji: EMOJIS[i % EMOJIS.length],
+    }))
   )
   return (
     <div className="confetti-full" aria-hidden>

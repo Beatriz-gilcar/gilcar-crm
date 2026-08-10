@@ -44,7 +44,9 @@ export function LembreteWatcher() {
   const [lembretes, setLembretes] = useState<Lembrete[]>([])
   const [disparados, setDisparados] = useState<Lembrete[]>([])
   const lembretesRef = useRef<Lembrete[]>([])
-  lembretesRef.current = lembretes
+  useEffect(() => {
+    lembretesRef.current = lembretes
+  }, [lembretes])
 
   // Busca inicial + a cada 2 min; pede permissão de notificação uma vez.
   useEffect(() => {

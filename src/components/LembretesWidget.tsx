@@ -46,6 +46,7 @@ export function LembretesWidget() {
   // Pisca enquanto houver lembrete vencido ainda não concluído (derivado, não
   // por tempo). Só para quando a pessoa dá baixa (✓) — que tira ele da lista.
   const [temVencido, setTemVencido] = useState(false)
+  const [agora, setAgora] = useState(() => Date.now())
   const [titulo, setTitulo] = useState('')
   const [quando, setQuando] = useState('')
   const [destino, setDestino] = useState('')
@@ -54,7 +55,9 @@ export function LembretesWidget() {
   const [gerentes, setGerentes] = useState<Pessoa[]>([])
   const [consultores, setConsultores] = useState<Pessoa[]>([])
   const ref = useRef<Lembrete[]>([])
-  ref.current = lembretes
+  useEffect(() => {
+    ref.current = lembretes
+  }, [lembretes])
 
   function buscar() {
     fetch('/api/lembretes')
@@ -85,9 +88,10 @@ export function LembretesWidget() {
   // não concluído — só apaga quando a pessoa dá baixa (✓).
   useEffect(() => {
     const avaliar = () => {
-      const agora = Date.now()
+      const agoraMs = Date.now()
+      setAgora(agoraMs)
       const vencidos = ref.current.filter(
-        (l) => l.data_vencimento && new Date(l.data_vencimento).getTime() <= agora
+        (l) => l.data_vencimento && new Date(l.data_vencimento).getTime() <= agoraMs
       )
       const novos = vencidos.filter((l) => !jaAlertado(l.id))
       if (novos.length > 0) {
@@ -238,7 +242,7 @@ export function LembretesWidget() {
             ) : (
               <ul className="flex flex-col">
                 {lembretes.map((l) => {
-                  const vencido = l.data_vencimento ? new Date(l.data_vencimento).getTime() <= Date.now() : false
+                  const vencido = l.data_vencimento ? new Date(l.data_vencimento).getTime() <= agora : false
                   return (
                     <li
                       key={l.id}
