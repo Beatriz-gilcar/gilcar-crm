@@ -80,18 +80,26 @@ export default async function OrdensPage({
   const { data: ordensData } = await query.overrideTypes<Ordem[]>()
   const ordens = ordensData ?? []
 
-  // KPIs no mesmo escopo da lista: gerente conta só a própria unidade.
-  const totalQuery = supabase.from('ordens_servico').select('*', { count: 'exact', head: true })
+  // KPIs no mesmo escopo da lista: gerente conta só a própria unidade, e os
+  // mesmos filtros de busca/data/vendedor da lista valem aqui também — senão
+  // o total parece incluir meses que já foram filtrados fora da lista.
+  let totalQuery = supabase.from('ordens_servico').select('*', { count: 'exact', head: true })
   const pendentesQuery = supabase
     .from('ordens_servico')
     .select('*', { count: 'exact', head: true })
     .eq('status', 'pendente')
   const valoresQuery = supabase.from('ordens_servico').select('falta_receber').eq('status', 'pendente')
-  if (unidadeGerente) {
-    totalQuery.eq('unidade_id', unidadeGerente)
-    pendentesQuery.eq('unidade_id', unidadeGerente)
-    valoresQuery.eq('unidade_id', unidadeGerente)
+  for (const q of [totalQuery, pendentesQuery, valoresQuery]) {
+    if (unidadeGerente) q.eq('unidade_id', unidadeGerente)
+    if (data_de) q.gte('data_venda', data_de)
+    if (data_ate) q.lte('data_venda', data_ate)
+    if (isGerencia && vendedor_id) q.eq('consultor_id', vendedor_id)
+    if (busca) {
+      const termo = `%${busca}%`
+      q.or(`cliente_nome.ilike.${termo},veiculo_marca.ilike.${termo},veiculo_modelo.ilike.${termo},veiculo_placa.ilike.${termo}`)
+    }
   }
+  if (status) totalQuery = totalQuery.eq('status', status)
   const [{ count: total }, { count: pendentes }, { data: pendentesValores }] = await Promise.all([
     totalQuery,
     pendentesQuery,
