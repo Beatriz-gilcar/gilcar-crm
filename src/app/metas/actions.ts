@@ -491,35 +491,44 @@ export async function salvarMetasProtecaoLote(formData: FormData) {
     })
   }
 
-  for (const alvo of alvos) {
-    const coluna = alvo.escopo === 'unidade' ? 'unidade_id' : 'consultor_id'
+  // Cada alvo é independente dos outros, então roda tudo em paralelo em vez
+  // de esperar um de cada vez — com a lista inteira de consultores/unidades
+  // isso era uma fila de dezenas de idas ao banco em série.
+  const resultados = await Promise.all(
+    alvos.map(async (alvo) => {
+      const coluna = alvo.escopo === 'unidade' ? 'unidade_id' : 'consultor_id'
 
-    const { data: existente } = await supabase
-      .from('metas')
-      .select('id')
-      .eq('tipo', 'protecao')
-      .eq('escopo', alvo.escopo)
-      .eq('periodo', periodo)
-      .eq(coluna, alvo.id)
-      .maybeSingle<{ id: string }>()
+      const { data: existente } = await supabase
+        .from('metas')
+        .select('id')
+        .eq('tipo', 'protecao')
+        .eq('escopo', alvo.escopo)
+        .eq('periodo', periodo)
+        .eq(coluna, alvo.id)
+        .maybeSingle<{ id: string }>()
 
-    if (existente) {
-      await supabase.from('metas').delete().eq('id', existente.id)
-    }
-
-    if (alvo.valor > 0) {
-      const { error } = await supabase.from('metas').insert({
-        tipo: 'protecao',
-        escopo: alvo.escopo,
-        periodo,
-        valor_meta: alvo.valor,
-        [coluna]: alvo.id,
-      })
-
-      if (error) {
-        redirect(`${voltar}&error=${encodeURIComponent('Não foi possível salvar as metas')}`)
+      if (existente) {
+        await supabase.from('metas').delete().eq('id', existente.id)
       }
-    }
+
+      if (alvo.valor > 0) {
+        const { error } = await supabase.from('metas').insert({
+          tipo: 'protecao',
+          escopo: alvo.escopo,
+          periodo,
+          valor_meta: alvo.valor,
+          [coluna]: alvo.id,
+        })
+
+        return !error
+      }
+
+      return true
+    })
+  )
+
+  if (resultados.some((ok) => !ok)) {
+    redirect(`${voltar}&error=${encodeURIComponent('Não foi possível salvar as metas')}`)
   }
 
   revalidatePath('/metas/protecao')
