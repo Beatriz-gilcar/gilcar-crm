@@ -106,7 +106,7 @@ export default async function GerenciaPage({
               <div className="kpi-val">{checklists.length}</div>
             </div>
             <div className="kpi-card">
-              <div className="kpi-label">Média de "Sim"</div>
+              <div className="kpi-label">Média de &quot;Sim&quot;</div>
               <div className="kpi-val">{media.toFixed(0)}%</div>
             </div>
           </div>

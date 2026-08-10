@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { Topbar } from '@/components/Topbar'
 import { EditarListaVendas } from '@/components/EditarListaVendas'
 import { mesAtualISO, mesRange, mesLabel } from '@/lib/metas'
-import { isGerenciaCargo, podeVerTudo } from '@/lib/membros'
+import { podeVerTudo } from '@/lib/membros'
 import { salvarListaVendas } from '../actions'
 
 type ProfileSummary = { nome: string; cargo: string }
@@ -42,7 +42,6 @@ export default async function EditarListaPage({
     .eq('id', user.id)
     .single<ProfileSummary>()
 
-  const isGerencia = isGerenciaCargo(profile?.cargo)
   const verTudo = podeVerTudo(profile?.cargo)
   const isAdmin = profile?.cargo === 'admin'
 

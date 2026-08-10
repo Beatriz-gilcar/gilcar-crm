@@ -10,7 +10,6 @@ export function SignaturePad({ name }: { name: string }) {
 
   useEffect(() => {
     fillWhite()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   function fillWhite() {
