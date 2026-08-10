@@ -76,7 +76,8 @@ export async function registrarAtendimento(formData: FormData) {
   const { error } = await supabase.from('atendimentos').insert(payload)
 
   if (error) {
-    voltar(data, 'Não foi possível registrar o atendimento')
+    const dup = error.message.includes('já foi aprovado')
+    voltar(data, dup ? error.message : 'Não foi possível registrar o atendimento')
   }
 
   revalidatePath('/ficha')
