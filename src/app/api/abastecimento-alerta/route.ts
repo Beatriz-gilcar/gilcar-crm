@@ -4,7 +4,8 @@ import { agoraNaLoja } from '@/lib/datas'
 
 // Diz pro gerente logado se hoje é véspera ou o próprio dia de abastecimento
 // da unidade dele — usado pelo widget flutuante (AbastecimentoAlertWidget).
-// "Hoje" só alerta de manhã (antes das 12h); "véspera" alerta o dia inteiro.
+// Os dois alertam o dia inteiro (não só de manhã): gerente que só abre o
+// sistema à tarde não pode ficar sem o aviso.
 
 export async function GET() {
   const supabase = await createClient()
@@ -33,10 +34,9 @@ export async function GET() {
 
   const agora = agoraNaLoja()
   const diaHoje = agora.getUTCDay()
-  const hora = agora.getUTCHours()
   const unidade = config.unidades?.nome ?? ''
 
-  if (diaHoje === config.dia_semana && hora < 12) {
+  if (diaHoje === config.dia_semana) {
     return NextResponse.json({ alerta: { tipo: 'hoje', unidade } })
   }
   if (diaHoje === (config.dia_semana - 1 + 7) % 7) {
