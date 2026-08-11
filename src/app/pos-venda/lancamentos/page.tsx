@@ -74,28 +74,32 @@ export default async function LancamentosPosVendaPage({
   // Agrupa por fornecedor (normalizando maiúsculas/minúsculas e espaço nas
   // pontas) — é o que a Luciana pediu: um somatório por fornecedor quando
   // houver mais de um lançamento pra ele.
-  const porFornecedor = new Map<string, { nome: string; total: number; qtd: number }>()
+  const porFornecedor = new Map<string, { nome: string; total: number; qtd: number; itens: Lancamento[] }>()
   for (const l of lancamentos) {
     const chave = l.fornecedor.trim().toLowerCase()
-    const atual = porFornecedor.get(chave) ?? { nome: l.fornecedor.trim(), total: 0, qtd: 0 }
+    const atual = porFornecedor.get(chave) ?? { nome: l.fornecedor.trim(), total: 0, qtd: 0, itens: [] }
     atual.total += Number(l.valor)
     atual.qtd += 1
+    atual.itens.push(l)
     porFornecedor.set(chave, atual)
   }
   const gruposFornecedor = [...porFornecedor.values()].sort((a, b) => b.total - a.total)
 
   const dataBR = data.split('-').reverse().join('/')
+  // Agrupado por fornecedor (não em ordem cronológica): é assim que o
+  // financeiro concilia pagamento, e cabe melhor na largura de uma mensagem
+  // de WhatsApp — item com descrição+placa+fornecedor+valor numa linha só
+  // quebra feio em 3 linhas no celular.
   const mensagemWhatsapp = [
     `*Pós-venda — Lançamentos de ${dataBR}*`,
     '',
-    ...lancamentos.map(
-      (l) =>
-        `• ${l.descricao}${l.veiculo_placa ? ` · ${l.veiculo_placa}` : ''} — ${l.fornecedor} — R$ ${formatBRLNumber(Number(l.valor))}`
-    ),
-    '',
-    '*Total por fornecedor:*',
-    ...gruposFornecedor.map((g) => `• ${g.nome}: R$ ${formatBRLNumber(g.total)} (${g.qtd} lançamento${g.qtd > 1 ? 's' : ''})`),
-    '',
+    ...gruposFornecedor.flatMap((g) => [
+      `*${g.nome} — R$ ${formatBRLNumber(g.total)}*`,
+      ...g.itens.map(
+        (l) => `• ${l.descricao}${l.veiculo_placa ? ` (${l.veiculo_placa})` : ''} — R$ ${formatBRLNumber(Number(l.valor))}`
+      ),
+      '',
+    ]),
     `*Total do dia: R$ ${formatBRLNumber(totalDia)}*`,
   ].join('\n')
   const linkWhatsapp = `https://wa.me/?text=${encodeURIComponent(mensagemWhatsapp)}`
