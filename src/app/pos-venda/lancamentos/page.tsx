@@ -96,7 +96,7 @@ export default async function LancamentosPosVendaPage({
     ...gruposFornecedor.flatMap((g) => [
       `*${g.nome} — R$ ${formatBRLNumber(g.total)}*`,
       ...g.itens.map(
-        (l) => `• ${l.descricao}${l.veiculo_placa ? ` (${l.veiculo_placa})` : ''} — R$ ${formatBRLNumber(Number(l.valor))}`
+        (l) => `• ${l.descricao}${l.veiculo_placa ? ` (🚗 ${l.veiculo_placa})` : ''} — R$ ${formatBRLNumber(Number(l.valor))}`
       ),
       '',
     ]),
