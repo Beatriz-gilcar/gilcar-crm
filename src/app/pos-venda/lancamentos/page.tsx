@@ -19,6 +19,10 @@ type Lancamento = {
 
 type ProfileSummary = { nome: string; cargo: string }
 
+// Via escape de código (não o caractere literal) pra não depender da
+// codificação do arquivo fonte sobreviver intacta até o build/runtime.
+const EMOJI_CARRO = '\u{1F697}'
+
 function hojeISO() {
   return new Date().toISOString().slice(0, 10)
 }
@@ -96,7 +100,8 @@ export default async function LancamentosPosVendaPage({
     ...gruposFornecedor.flatMap((g) => [
       `*${g.nome} — R$ ${formatBRLNumber(g.total)}*`,
       ...g.itens.map(
-        (l) => `• ${l.descricao}${l.veiculo_placa ? ` (🚗 ${l.veiculo_placa})` : ''} — R$ ${formatBRLNumber(Number(l.valor))}`
+        (l) =>
+          `• ${l.descricao}${l.veiculo_placa ? ` (${EMOJI_CARRO} ${l.veiculo_placa})` : ''} — R$ ${formatBRLNumber(Number(l.valor))}`
       ),
       '',
     ]),
