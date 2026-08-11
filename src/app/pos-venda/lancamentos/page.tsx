@@ -84,6 +84,22 @@ export default async function LancamentosPosVendaPage({
   }
   const gruposFornecedor = [...porFornecedor.values()].sort((a, b) => b.total - a.total)
 
+  const dataBR = data.split('-').reverse().join('/')
+  const mensagemWhatsapp = [
+    `*Pós-venda — Lançamentos de ${dataBR}*`,
+    '',
+    ...lancamentos.map(
+      (l) =>
+        `• ${l.descricao}${l.veiculo_placa ? ` · ${l.veiculo_placa}` : ''} — ${l.fornecedor} — R$ ${formatBRLNumber(Number(l.valor))}`
+    ),
+    '',
+    '*Total por fornecedor:*',
+    ...gruposFornecedor.map((g) => `• ${g.nome}: R$ ${formatBRLNumber(g.total)} (${g.qtd} lançamento${g.qtd > 1 ? 's' : ''})`),
+    '',
+    `*Total do dia: R$ ${formatBRLNumber(totalDia)}*`,
+  ].join('\n')
+  const linkWhatsapp = `https://wa.me/?text=${encodeURIComponent(mensagemWhatsapp)}`
+
   return (
     <>
       <Topbar
@@ -176,6 +192,17 @@ export default async function LancamentosPosVendaPage({
               <div className="kpi-val">{gruposFornecedor.length}</div>
             </div>
           </div>
+
+          {lancamentos.length > 0 && (
+            <a
+              href={linkWhatsapp}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn-outline btn-sm mt-4"
+            >
+              Enviar por WhatsApp
+            </a>
+          )}
 
           {gruposFornecedor.length > 0 && (
             <div className="mt-4">
