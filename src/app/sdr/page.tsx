@@ -7,7 +7,7 @@ import { podeVerTudo } from '@/lib/membros'
 import { salvarSdrLeads, validarDiaSdr, salvarLeadsRecebidosSdrs } from './actions'
 
 type Profile = { nome: string; cargo: string; valida_sdr: boolean | null }
-type Pessoa = { id: string; nome: string; unidade_id: string | null }
+type Pessoa = { id: string; nome: string; unidade_id: string | null; ativo: boolean }
 type Unidade = { id: string; nome: string }
 type LeadRow = { consultor_id: string; unidade_id: string | null; agendamentos: number; comparecimentos: number; lancado_por: string }
 
@@ -55,7 +55,7 @@ export default async function SdrPage({
     // já substituídos por um cadastro novo (duplicata visual).
     admin
       .from('profiles')
-      .select('id, nome, unidade_id')
+      .select('id, nome, unidade_id, ativo')
       .in('cargo', ['consultor', 'supervisor'])
       .or('ativo.eq.true,visivel_sdr_mesmo_inativo.eq.true')
       .order('nome')
@@ -66,11 +66,6 @@ export default async function SdrPage({
   const pessoas = pessoasRes.data ?? []
   const unidades = unidadesRes.data ?? []
   const sdrs = sdrsRes.data ?? []
-  const lojas = unidades.map((u) => ({
-    id: u.id,
-    nome: u.nome,
-    consultores: pessoas.filter((p) => p.unidade_id === u.id).map((p) => ({ id: p.id, nome: p.nome })),
-  }))
   const nomeConsultor = new Map(pessoas.map((p) => [p.id, p.nome]))
   const nomeUnidade = new Map(unidades.map((u) => [u.id, u.nome]))
   const nomeSdr = new Map(sdrs.map((s) => [s.id, s.nome]))
@@ -315,6 +310,18 @@ export default async function SdrPage({
     }
   // Depois de validado, ninguém mexe (a Thuane valida no consolidado).
   const podeEditar = !validado
+
+  // Inativo só entra na lista do dia se já tiver lançamento NESSE dia — some
+  // do dia de hoje (não faz sentido lançar pra quem já saiu), mas continua
+  // aparecendo/editável num dia antigo que já tem o registro dele.
+  const idsComLancamentoHoje = new Set((leadsDia ?? []).map((l) => l.consultor_id))
+  const lojas = unidades.map((u) => ({
+    id: u.id,
+    nome: u.nome,
+    consultores: pessoas
+      .filter((p) => p.unidade_id === u.id && (p.ativo || idsComLancamentoHoje.has(p.id)))
+      .map((p) => ({ id: p.id, nome: p.nome })),
+  }))
 
   return (
     <>
