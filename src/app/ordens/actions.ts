@@ -60,6 +60,27 @@ function parseTrocas(formData: FormData): TrocaInput[] {
   })
 }
 
+// Lê a lista de formas de pagamento do campo escondido pagamentos_json
+// (montado pelo OrdemForm) — pode repetir a mesma forma mais de uma vez
+// (ex.: dois PIX).
+function parsePagamentos(formData: FormData): { forma: string; valor: number }[] {
+  const raw = (formData.get('pagamentos_json') as string) ?? ''
+  if (!raw) return []
+  let lista: unknown
+  try {
+    lista = JSON.parse(raw)
+  } catch {
+    return []
+  }
+  if (!Array.isArray(lista)) return []
+  return lista
+    .map((p) => {
+      const item = p as Record<string, string>
+      return { forma: item.forma ?? '', valor: parseBRL(item.valor ?? '') }
+    })
+    .filter((p) => p.forma in formaPagamentoLabel && p.valor > 0)
+}
+
 // Lê a lista de serviços de manutenção do campo escondido manutencao_itens_json
 // (montado pelo OrdemForm) — um item por tópico digitado.
 function parseManutencaoItens(formData: FormData): string[] {
@@ -134,9 +155,7 @@ async function buildOrdemFields(supabase: SupabaseServerClient, formData: FormDa
   const valor_financiado = money(formData, 'valor_financiado')
   const financeira = valor_financiado > 0 ? text(formData, 'financeira') : null
 
-  const pagamentos = Object.keys(formaPagamentoLabel)
-    .map((forma) => ({ forma, valor: money(formData, `pagamento_${forma}`) }))
-    .filter((p) => p.valor > 0)
+  const pagamentos = parsePagamentos(formData)
 
   const somaPagamentos = pagamentos.reduce((acc, p) => acc + p.valor, 0)
 

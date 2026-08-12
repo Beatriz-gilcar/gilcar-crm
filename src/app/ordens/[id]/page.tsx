@@ -157,7 +157,6 @@ export default async function OrdemDetailPage({
     .overrideTypes<Pagamento[]>()
 
   const pagamentos = pagamentosData ?? []
-  const pagamentosMap = new Map(pagamentos.map((p) => [p.forma, p.valor]))
 
   const { data: trocasData } = await supabase
     .from('ordens_servico_trocas')
@@ -281,9 +280,7 @@ export default async function OrdemDetailPage({
     desconto: moneyDefault(ordem.desconto),
     valor_financiado: moneyDefault(ordem.valor_financiado),
     financeira: ordem.financeira ?? '',
-    pagamentos: Object.fromEntries(
-      Object.keys(formaPagamentoLabel).map((f) => [f, moneyDefault(pagamentosMap.get(f))])
-    ),
+    pagamentos: pagamentos.map((p) => ({ forma: p.forma, valor: moneyDefault(p.valor) })),
     trocas: trocasView.map(
       (t): TrocaInit => ({
         marca: t.marca ?? '',
@@ -536,8 +533,8 @@ export default async function OrdemDetailPage({
                   {pagamentos.length > 0 && (
                     <div className="mt-1">
                       <p className="text-[.7rem] font-bold tracking-wide text-[var(--red)]">Pagamentos</p>
-                      {pagamentos.map((p) => (
-                        <p key={p.forma}>
+                      {pagamentos.map((p, i) => (
+                        <p key={i}>
                           {formaPagamentoLabel[p.forma]}: {formatBRL(p.valor)}
                         </p>
                       ))}

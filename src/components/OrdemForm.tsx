@@ -57,9 +57,11 @@ export type OrdemFormDefaults = {
   desconto: string
   valor_financiado: string
   financeira: string
-  pagamentos: Record<string, string>
+  pagamentos: PagamentoInit[]
   trocas: TrocaInit[]
 }
+
+export type PagamentoInit = { forma: string; valor: string }
 
 const trocaVazia: TrocaInit = {
   marca: '',
@@ -170,7 +172,9 @@ export function OrdemForm({
   const [over, setOver] = useState(defaults.over)
   const [valorFinanciado, setValorFinanciado] = useState(defaults.valor_financiado)
 
-  const [pagamentos, setPagamentos] = useState<Record<string, string>>(defaults.pagamentos)
+  const [pagamentos, setPagamentos] = useState<PagamentoInit[]>(
+    defaults.pagamentos.length ? defaults.pagamentos : [{ forma: '', valor: '' }]
+  )
   const [trocas, setTrocas] = useState<TrocaInit[]>(defaults.trocas)
   const [manutencaoItens, setManutencaoItens] = useState<string[]>(
     defaults.manutencao_itens.length ? defaults.manutencao_itens : ['']
@@ -201,8 +205,11 @@ export function OrdemForm({
     }
   }
 
-  function setPagamento(forma: string, v: string) {
-    setPagamentos((p) => ({ ...p, [forma]: v }))
+  function setPagamentoForma(i: number, forma: string) {
+    setPagamentos((ps) => ps.map((p, idx) => (idx === i ? { ...p, forma } : p)))
+  }
+  function setPagamentoValor(i: number, valor: string) {
+    setPagamentos((ps) => ps.map((p, idx) => (idx === i ? { ...p, valor } : p)))
   }
 
   function setTroca(i: number, campo: keyof TrocaInit, v: string) {
@@ -213,15 +220,16 @@ export function OrdemForm({
   const faltaReceber = useMemo(() => {
     const total = parseBRL(valorTotal)
     const desc = temDesconto ? parseBRL(desconto) : 0
-    const somaPag = formasPagamento.reduce((acc, f) => acc + parseBRL(pagamentos[f.value] ?? ''), 0)
+    const somaPag = pagamentos.reduce((acc, p) => acc + parseBRL(p.valor), 0)
     const somaTrocas = isVenda
       ? trocas.reduce((acc, t) => acc + (parseBRL(t.valor_avaliado) - parseBRL(t.divida)), 0)
       : 0
     const financiado = parseBRL(valorFinanciado)
     return Math.max(0, total - desc - somaPag - somaTrocas - financiado)
-  }, [valorTotal, temDesconto, desconto, pagamentos, trocas, valorFinanciado, isVenda, formasPagamento])
+  }, [valorTotal, temDesconto, desconto, pagamentos, trocas, valorFinanciado, isVenda])
 
-  // Troca vira JSON num campo escondido; o server action faz o parse.
+  // Pagamento e troca viram JSON num campo escondido; o server action faz o parse.
+  const pagamentosSubmit = pagamentos.filter((p) => p.forma && parseBRL(p.valor) > 0)
   const trocasSubmit = isVenda ? trocas.filter((t) => t.marca || t.modelo || parseBRL(t.valor_avaliado) > 0) : []
   const manutencaoItensSubmit = manutencaoItens.map((m) => m.trim()).filter(Boolean)
 
@@ -234,6 +242,7 @@ export function OrdemForm({
       <input type="hidden" name="desconto" value={temDesconto ? desconto : ''} />
       <input type="hidden" name="over" value={isVenda ? over : ''} />
       <input type="hidden" name="tem_troca" value={trocasSubmit.length > 0 ? 'sim' : 'nao'} />
+      <input type="hidden" name="pagamentos_json" value={JSON.stringify(pagamentosSubmit)} />
       <input type="hidden" name="trocas_json" value={JSON.stringify(trocasSubmit)} />
       <input type="hidden" name="manutencao_itens_json" value={JSON.stringify(manutencaoItensSubmit)} />
 
@@ -526,19 +535,50 @@ export function OrdemForm({
         <div className="sec-header">
           <div className="sec-title">Formas de pagamento</div>
         </div>
-        <div className="sec-body sec-pad">
-          <div className="grid2">
-            {formasPagamento.map((f) => (
-              <div key={f.value} className="form-group" style={{ marginBottom: 0 }}>
-                <label>{f.label}</label>
-                <Moeda
-                  name={`pagamento_${f.value}`}
-                  value={pagamentos[f.value] ?? ''}
-                  onChange={(v) => setPagamento(f.value, v)}
-                />
+        <div className="sec-body sec-pad flex flex-col gap-3">
+          <p className="text-[.72rem] normal-case text-[var(--text-muted)]">
+            Pode repetir a mesma forma mais de uma vez (ex.: dois PIX de valores diferentes).
+          </p>
+          {pagamentos.map((p, i) => (
+            <div key={i} className="grid2 items-end">
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label>Forma</label>
+                <select value={p.forma} onChange={(e) => setPagamentoForma(i, e.target.value)}>
+                  <option value="" disabled>
+                    Selecione...
+                  </option>
+                  {formasPagamento.map((f) => (
+                    <option key={f.value} value={f.value}>
+                      {f.label}
+                    </option>
+                  ))}
+                </select>
               </div>
-            ))}
-          </div>
+              <div className="flex items-end gap-2">
+                <div className="form-group flex-1" style={{ marginBottom: 0 }}>
+                  <label>Valor</label>
+                  <Moeda value={p.valor} onChange={(v) => setPagamentoValor(i, v)} />
+                </div>
+                {pagamentos.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => setPagamentos((ps) => ps.filter((_, idx) => idx !== i))}
+                    className="text-[.72rem] font-bold text-[var(--danger)] hover:underline"
+                    style={{ marginBottom: 11 }}
+                  >
+                    Remover
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+          <button
+            type="button"
+            onClick={() => setPagamentos((ps) => [...ps, { forma: '', valor: '' }])}
+            className="btn btn-outline btn-sm self-start"
+          >
+            + Adicionar forma de pagamento
+          </button>
         </div>
       </div>
 

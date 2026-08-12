@@ -71,8 +71,6 @@ export default async function NewOrdemPage({
     label: `${v.marca} ${v.modelo} · ${v.placa ?? 'sem placa'}${v.unidades?.nome ? ` · ${v.unidades.nome}` : ''}`,
   }))
 
-  const pagamentosVazios = Object.fromEntries(Object.keys(formaPagamentoLabel).map((f) => [f, '']))
-
   const defaults: OrdemFormDefaults = {
     tipo: 'venda',
     data_venda: hojeISO(),
@@ -104,7 +102,7 @@ export default async function NewOrdemPage({
     desconto: '',
     valor_financiado: '',
     financeira: '',
-    pagamentos: pagamentosVazios,
+    pagamentos: [],
     trocas: [],
   }
 
