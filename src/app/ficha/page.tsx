@@ -291,11 +291,11 @@ export default async function FichaPage({
           </div>
 
           {/* ── Buscar atendimentos por data (só os próprios) ───────────── */}
-          <details className="mt-1">
-            <summary className="cursor-pointer list-none text-[.9rem] font-extrabold uppercase tracking-wide text-[var(--text)]">
-              🔎 Buscar meus atendimentos por data
-            </summary>
-            <div className="sec-body sec-pad mt-2">
+          <div>
+            <div className="sec-header">
+              <div className="sec-title">🔎 Buscar meus atendimentos por data</div>
+            </div>
+            <div className="sec-body sec-pad">
               <form method="get" className="flex flex-wrap items-end gap-3">
                 <div className="form-group" style={{ marginBottom: 0, maxWidth: 160 }}>
                   <label>De</label>
@@ -351,7 +351,7 @@ export default async function FichaPage({
                   </>
                 ))}
             </div>
-          </details>
+          </div>
 
           {jaEnviada && (
             <p className="rounded-md bg-[#0f1830] px-3 py-2 text-[.75rem] normal-case text-[var(--text-muted)]">
