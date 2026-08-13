@@ -97,14 +97,18 @@ export default async function LancamentosPosVendaPage({
   const mensagemWhatsapp = [
     `*Pós-venda — Lançamentos de ${dataBR}*`,
     '',
-    ...gruposFornecedor.flatMap((g) => [
-      `*${g.nome} — R$ ${formatBRLNumber(g.total)}*`,
-      ...g.itens.map(
-        (l) =>
-          `• ${l.descricao}${l.veiculo_placa ? ` (${EMOJI_CARRO} ${l.veiculo_placa})` : ''} — R$ ${formatBRLNumber(Number(l.valor))}`
-      ),
-      '',
-    ]),
+    // Fornecedor com 1 item só: uma linha, sem repetir o mesmo valor no
+    // cabeçalho e no item embaixo (com 2+ itens o cabeçalho vira subtotal,
+    // aí faz sentido separar).
+    ...gruposFornecedor.flatMap((g) => {
+      const item = (l: Lancamento) =>
+        `${l.descricao}${l.veiculo_placa ? ` (${EMOJI_CARRO} ${l.veiculo_placa})` : ''} — R$ ${formatBRLNumber(Number(l.valor))}`
+
+      if (g.qtd === 1) {
+        return [`*${g.nome}* — ${item(g.itens[0])}`, '']
+      }
+      return [`*${g.nome} — R$ ${formatBRLNumber(g.total)}*`, ...g.itens.map((l) => `• ${item(l)}`), '']
+    }),
     `*Total do dia: R$ ${formatBRLNumber(totalDia)}*`,
   ].join('\n')
   const linkWhatsapp = `https://wa.me/?text=${encodeURIComponent(mensagemWhatsapp)}`
