@@ -40,6 +40,13 @@ export async function criarResposta(formData: FormData) {
   } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('cargo')
+    .eq('id', user.id)
+    .single<{ cargo: string }>()
+  if (profile?.cargo !== 'admin') redirect('/mural')
+
   const post_id = formData.get('post_id') as string
   const conteudo = text(formData, 'conteudo')
 

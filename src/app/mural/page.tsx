@@ -197,16 +197,18 @@ export default async function MuralPage({
                       </div>
                     )}
 
-                    <form action={criarResposta} className="flex items-end gap-2 border-t border-[var(--border)] pt-3">
-                      <input type="hidden" name="post_id" value={post.id} />
-                      <div className="form-group flex-1" style={{ marginBottom: 0 }}>
-                        <label>Responder</label>
-                        <input name="conteudo" type="text" placeholder="Escreva uma resposta" required />
-                      </div>
-                      <button type="submit" className="btn btn-outline btn-sm">
-                        Enviar
-                      </button>
-                    </form>
+                    {isAdmin && (
+                      <form action={criarResposta} className="flex items-end gap-2 border-t border-[var(--border)] pt-3">
+                        <input type="hidden" name="post_id" value={post.id} />
+                        <div className="form-group flex-1" style={{ marginBottom: 0 }}>
+                          <label>Responder</label>
+                          <input name="conteudo" type="text" placeholder="Escreva uma resposta" required />
+                        </div>
+                        <button type="submit" className="btn btn-outline btn-sm">
+                          Enviar
+                        </button>
+                      </form>
+                    )}
                   </div>
                 )
               })
