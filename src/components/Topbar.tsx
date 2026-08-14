@@ -16,6 +16,7 @@ type NavKey =
   | 'sdr'
   | 'gerencia'
   | 'admin'
+  | 'mural'
 
 export function Topbar({
   nome,
@@ -59,6 +60,9 @@ export function Topbar({
         { key: 'premiacao', href: '/premiacao', label: 'Premiação' },
         { key: 'dashboard', href: '/dashboard', label: 'Dashboard' },
       ]
+
+  // Mural (dúvidas e sugestões) é de todo mundo, sem exceção de cargo.
+  navItems.push({ key: 'mural', href: '/mural', label: 'Mural' })
 
   if (!isPosVenda && verTudo) {
     // Uma aba só: Consultores (Status do Dia) e Gerentes (Gerência) ficam como
