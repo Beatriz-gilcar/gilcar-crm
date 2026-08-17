@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { Topbar } from '@/components/Topbar'
 import { podeVerTudo, podeAcessarSdr } from '@/lib/membros'
+import { normalizarTelefone } from '@/lib/whatsapp'
+import { atualizarVisita } from './actions'
 
 type ProfileSummary = { nome: string; cargo: string }
 type Pessoa = { id: string; nome: string }
@@ -70,9 +72,8 @@ export default async function SdrHistoricoPage({
   const nomePorId = new Map([...sdrs, ...consultores].map((p) => [p.id, p.nome]))
   const unidadeNomePorId = new Map(unidades.map((u) => [u.id, u.nome]))
 
-  // Telefone é dado sensível — só admin busca e recebe essa coluna. Pra
-  // quem não é admin, nem chega a sair do servidor (a RLS já barra o
-  // select direto de qualquer forma, isso aqui é a UI seguindo a mesma regra).
+  // Telefone visível pra quem acessa o SDR (mesma trava de acesso da página
+  // inteira) — é quem precisa contatar o cliente pro follow-up.
   let query = admin
     .from('sdr_leads_historico')
     .select(
@@ -89,6 +90,14 @@ export default async function SdrHistoricoPage({
 
   const { data: leadsData } = await query.overrideTypes<Lead[]>()
   const leads = leadsData ?? []
+
+  const qs = new URLSearchParams()
+  if (de) qs.set('de', de)
+  if (ate) qs.set('ate', ate)
+  if (sdrId) qs.set('sdr', sdrId)
+  if (consultorId) qs.set('consultor', consultorId)
+  if (busca) qs.set('busca', busca)
+  const voltarPara = `/sdr/historico${qs.toString() ? `?${qs.toString()}` : ''}`
 
   return (
     <>
@@ -115,7 +124,7 @@ export default async function SdrHistoricoPage({
           </div>
           <p className="mt-1 text-[.72rem] normal-case text-[var(--text-muted)]">
             {leads.length} resultado{leads.length === 1 ? '' : 's'} (máx. 300 por vez — use os filtros pra refinar).
-            {!isAdmin && ' Telefone visível só pra admin.'}
+            Clique no nome pra abrir o WhatsApp do cliente.
           </p>
 
           <form method="get" className="card sec-pad mt-3 flex flex-wrap items-end gap-3">
@@ -163,19 +172,44 @@ export default async function SdrHistoricoPage({
               <div className="empty-state">Nenhum lead encontrado com esses filtros.</div>
             ) : (
               <div className="flex flex-col">
-                {leads.map((l) => (
+                {leads.map((l) => {
+                  const telefoneWa = normalizarTelefone(l.cliente_telefone)
+                  return (
                   <div
                     key={l.id}
                     className="flex flex-col gap-1 border-t border-[var(--border)] px-4 py-3 first:border-t-0"
                   >
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="font-semibold text-white">
-                        {l.cliente_nome}
-                        {isAdmin && l.cliente_telefone ? ` · ${l.cliente_telefone}` : ''}
-                      </p>
-                      {l.visita && (
-                        <span className={`badge ${visitaBadge[l.visita] ?? 'badge-neutro'}`}>{l.visita}</span>
+                      {telefoneWa ? (
+                        <a
+                          href={`https://wa.me/${telefoneWa}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-semibold text-white underline decoration-[var(--text-muted)] hover:text-[var(--coral)]"
+                        >
+                          {l.cliente_nome}
+                          {l.cliente_telefone ? ` · ${l.cliente_telefone}` : ''}
+                        </a>
+                      ) : (
+                        <p className="font-semibold text-white">{l.cliente_nome}</p>
                       )}
+                      <form action={atualizarVisita} className="flex items-center gap-1">
+                        <input type="hidden" name="id" value={l.id} />
+                        <input type="hidden" name="voltar_para" value={voltarPara} />
+                        {(['SIM', 'NÃO', 'REAGENDOU'] as const).map((v) => (
+                          <button
+                            key={v}
+                            type="submit"
+                            name="visita"
+                            value={v}
+                            className={`badge ${l.visita === v ? (visitaBadge[v] ?? 'badge-neutro') : 'badge-neutro'}`}
+                            style={{ cursor: 'pointer', opacity: l.visita === v ? 1 : 0.45 }}
+                            title={`Marcar como ${v}`}
+                          >
+                            {v}
+                          </button>
+                        ))}
+                      </form>
                     </div>
                     <p className="text-[.72rem] text-[var(--text-muted)]">
                       {new Date(`${l.data}T12:00:00`).toLocaleDateString('pt-BR')}
@@ -191,7 +225,8 @@ export default async function SdrHistoricoPage({
                       <p className="text-[.78rem] normal-case text-[var(--text-muted)]">{l.observacao}</p>
                     )}
                   </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </div>
