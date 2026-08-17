@@ -7,7 +7,7 @@ alter table profiles add column gerencia_holerites boolean not null default fals
 
 update profiles
 set gerencia_holerites = true
-where id = (select id from auth.users where email = 'klemjr92@gmail.com');
+where id = (select id from auth.users where email = 'nsnhbrum@gmail.com');
 
 create function pode_gerenciar_holerites()
   returns boolean language sql stable security definer as $$
