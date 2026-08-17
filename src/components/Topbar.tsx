@@ -59,21 +59,28 @@ export function Topbar({
         { key: 'ficha', href: '/ficha', label: 'Ficha' },
         { key: 'rotina', href: '/rotina', label: 'Rotina do Dia' },
         { key: 'abastecimento', href: '/abastecimento', label: 'Abastecimento' },
-        { key: 'estoque', href: '/estoque', label: 'Estoque' },
+        // Uma aba só: Consultores (Status do Dia) e Gerentes (Gerência) ficam
+        // como sub-abas dentro da mesma tela.
+        ...(verTudo ? [{ key: 'status-do-dia' as const, href: '/status-do-dia', label: 'Status do Dia' }] : []),
         { key: 'ordens', href: '/ordens', label: 'Ordens' },
-        { key: 'pos-venda', href: '/pos-venda', label: 'Pós-venda' },
         { key: 'metas', href: '/metas', label: 'Metas' },
         { key: 'premiacao', href: '/premiacao', label: 'Premiação' },
+        { key: 'estoque', href: '/estoque', label: 'Estoque' },
+        { key: 'pos-venda', href: '/pos-venda', label: 'Pós-venda' },
+        { key: 'holerites', href: '/holerites', label: 'Holerites' },
+        { key: 'mural', href: '/mural', label: 'Mural' },
         { key: 'dashboard', href: '/dashboard', label: 'Dashboard' },
       ]
 
-  // Mural e Holerites são de todo mundo, sem exceção de cargo.
-  navItems.push({ key: 'mural', href: '/mural', label: 'Mural' })
-  navItems.push({ key: 'holerites', href: '/holerites', label: 'Holerites' })
+  // Mural e Holerites são de todo mundo, sem exceção de cargo — nos naves
+  // enxutos (SDR/pós-venda) entram no fim, já que o branch acima cobre a
+  // ordem específica pedida pro nav completo.
+  if (isSdrCargo || isPosVenda) {
+    navItems.push({ key: 'holerites', href: '/holerites', label: 'Holerites' })
+    navItems.push({ key: 'mural', href: '/mural', label: 'Mural' })
+  }
 
-  if (!isPosVenda && verTudo) {
-    // Uma aba só: Consultores (Status do Dia) e Gerentes (Gerência) ficam como
-    // sub-abas dentro da mesma tela.
+  if (isSdrCargo && verTudo) {
     navItems.push({ key: 'status-do-dia', href: '/status-do-dia', label: 'Status do Dia' })
   }
 
