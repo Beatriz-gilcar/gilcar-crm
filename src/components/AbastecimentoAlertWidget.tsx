@@ -1,24 +1,43 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 type Alerta = { tipo: 'hoje' | 'amanha'; unidade: string } | null
+
+const REPETIR_A_CADA_MS = 2 * 60 * 60 * 1000 // insiste a cada 2h até ser dispensado
 
 function hojeISO() {
   return new Date().toISOString().slice(0, 10)
 }
-function jaAlertado(tipo: string): boolean {
+// Dispensado (X ou "OK, entendi"): para de vez até o dia mudar. Diferente de
+// só "mostrado", que só evita repetir antes da hora — dispensar é a pessoa
+// dizendo "já vi, pode parar".
+function foiDispensadoHoje(tipo: string): boolean {
   try {
-    return localStorage.getItem(`abastecimento-alertado-${tipo}-${hojeISO()}`) === '1'
+    return localStorage.getItem(`abastecimento-dispensado-${tipo}-${hojeISO()}`) === '1'
   } catch {
     return false
   }
 }
-function marcarAlertado(tipo: string) {
+function marcarDispensado(tipo: string) {
   try {
-    localStorage.setItem(`abastecimento-alertado-${tipo}-${hojeISO()}`, '1')
+    localStorage.setItem(`abastecimento-dispensado-${tipo}-${hojeISO()}`, '1')
   } catch {
-    // sem localStorage: no pior caso alerta de novo — sem quebrar.
+    // sem localStorage: no pior caso o aviso segue repetindo — sem quebrar.
+  }
+}
+function ultimaVezMostrado(tipo: string): number {
+  try {
+    return Number(localStorage.getItem(`abastecimento-mostrado-em-${tipo}-${hojeISO()}`)) || 0
+  } catch {
+    return 0
+  }
+}
+function marcarMostradoAgora(tipo: string) {
+  try {
+    localStorage.setItem(`abastecimento-mostrado-em-${tipo}-${hojeISO()}`, String(Date.now()))
+  } catch {
+    // sem localStorage: no pior caso o aviso segue repetindo — sem quebrar.
   }
 }
 function bip() {
@@ -42,9 +61,12 @@ function bip() {
 
 // Avisa o gerente logado, dentro do sistema, na véspera e na manhã do dia de
 // abastecimento da própria unidade — a API já filtra isso (só gerente, só
-// unidade dele, só se houver dia configurado).
+// unidade dele, só se houver dia configurado). Insiste a cada 2h (repete o
+// popup + som) até a pessoa dispensar explicitamente, pra não passar batido
+// se fechar sem perceber ou aparecer num momento ruim.
 export function AbastecimentoAlertWidget() {
   const [mensagem, setMensagem] = useState<string | null>(null)
+  const tipoAtualRef = useRef<'hoje' | 'amanha' | null>(null)
 
   useEffect(() => {
     if ('Notification' in window && Notification.permission === 'default') {
@@ -54,9 +76,13 @@ export function AbastecimentoAlertWidget() {
       fetch('/api/abastecimento-alerta')
         .then((r) => (r.ok ? r.json() : null))
         .then((d: { alerta: Alerta } | null) => {
-          if (!d?.alerta || jaAlertado(d.alerta.tipo)) return
+          if (!d?.alerta) return
           const { tipo, unidade } = d.alerta
-          marcarAlertado(tipo)
+          if (foiDispensadoHoje(tipo)) return
+          if (Date.now() - ultimaVezMostrado(tipo) < REPETIR_A_CADA_MS) return
+
+          marcarMostradoAgora(tipo)
+          tipoAtualRef.current = tipo
           const texto =
             tipo === 'hoje'
               ? `Hoje é dia de abastecimento em ${unidade}`
@@ -74,10 +100,16 @@ export function AbastecimentoAlertWidget() {
         .catch(() => {})
     }
     checar()
-    // Não precisa granularidade fina — é um aviso por dia, não por horário.
+    // Granularidade fina o bastante pra pegar a janela de repetição de 2h
+    // sem sobrecarregar a API.
     const id = setInterval(checar, 10 * 60 * 1000)
     return () => clearInterval(id)
   }, [])
+
+  function dispensar() {
+    if (tipoAtualRef.current) marcarDispensado(tipoAtualRef.current)
+    setMensagem(null)
+  }
 
   if (!mensagem) return null
 
@@ -89,7 +121,7 @@ export function AbastecimentoAlertWidget() {
         </span>
         <button
           type="button"
-          onClick={() => setMensagem(null)}
+          onClick={dispensar}
           className="text-[var(--text-muted)] hover:text-white"
           aria-label="Fechar"
         >
@@ -100,7 +132,7 @@ export function AbastecimentoAlertWidget() {
         <p className="font-semibold text-white">{mensagem}</p>
       </div>
       <div className="px-4 pb-3">
-        <button type="button" onClick={() => setMensagem(null)} className="btn btn-red btn-sm w-full">
+        <button type="button" onClick={dispensar} className="btn btn-red btn-sm w-full">
           OK, entendi
         </button>
       </div>
