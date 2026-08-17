@@ -17,6 +17,8 @@ type NavKey =
   | 'gerencia'
   | 'admin'
   | 'mural'
+  | 'holerites'
+  | 'holerites-rh'
 
 export function Topbar({
   nome,
@@ -61,8 +63,9 @@ export function Topbar({
         { key: 'dashboard', href: '/dashboard', label: 'Dashboard' },
       ]
 
-  // Mural (dúvidas e sugestões) é de todo mundo, sem exceção de cargo.
+  // Mural e Holerites são de todo mundo, sem exceção de cargo.
   navItems.push({ key: 'mural', href: '/mural', label: 'Mural' })
+  navItems.push({ key: 'holerites', href: '/holerites', label: 'Holerites' })
 
   if (!isPosVenda && verTudo) {
     // Uma aba só: Consultores (Status do Dia) e Gerentes (Gerência) ficam como
@@ -74,6 +77,7 @@ export function Topbar({
     // Consolidado de SDR: só o admin (Junior) vê.
     navItems.push({ key: 'sdr', href: '/sdr', label: 'SDR' })
     navItems.push({ key: 'admin', href: '/admin', label: 'Admin' })
+    navItems.push({ key: 'holerites-rh', href: '/holerites/rh', label: 'Holerites RH' })
   }
 
   return (
