@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -129,6 +130,13 @@ export default async function SdrPage({
         {topbar}
         <div className="flex flex-1 flex-col gap-5 px-4 py-8 sm:px-10">
           <div className="mx-auto w-full max-w-4xl">
+            <div className="chip-row mb-4">
+              <span className="toggle-btn ativo">Consolidado</span>
+              <Link href="/sdr/historico" className="toggle-btn">
+                Histórico de leads
+              </Link>
+            </div>
+
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="sec-title" style={{ borderBottom: 'none', paddingBottom: 0 }}>SDR — Consolidado</div>
               <form method="get" className="flex flex-wrap items-end gap-2">
@@ -328,6 +336,13 @@ export default async function SdrPage({
       {topbar}
       <div className="flex flex-1 flex-col gap-4 px-4 py-8 sm:px-10">
         <div className="mx-auto w-full max-w-3xl">
+          <div className="chip-row mb-4">
+            <span className="toggle-btn ativo">Meu lançamento</span>
+            <Link href="/sdr/historico" className="toggle-btn">
+              Histórico de leads
+            </Link>
+          </div>
+
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="sec-title" style={{ borderBottom: 'none', paddingBottom: 0 }}>Meu lançamento de leads — SDR</div>
             <form method="get" className="flex items-center gap-2">

@@ -28,7 +28,7 @@ import { parse } from 'csv-parse/sync'
 import { createClient } from '@supabase/supabase-js'
 
 const DRY_RUN = process.argv.includes('--dry-run')
-const CSV_DIR = 'C:\\Users\\Beatriz Navarro\\Desktop\\sdr'
+const CSV_DIR = 'C:\\Users\\Beatriz Navarro\\Desktop\\Documentos Gilcar\\sdr'
 
 // ── Setup ────────────────────────────────────────────────────────────────
 
@@ -96,6 +96,16 @@ type LeadBruto = {
   consultorBruto: string
   temAgendamento: boolean
   compareceu: boolean
+  clienteNome: string
+  clienteTelefone: string
+  motivo: string
+  veiculoInteresse: string
+  origem: string
+  observacao: string
+  dataVisitaISO: string | null
+  visitaBruta: string
+  feedback: string
+  fechou: string
 }
 
 const linhasIgnoradas: { arquivo: string; motivo: string }[] = []
@@ -107,7 +117,11 @@ function lerLeads(nomeArquivo: string): LeadBruto[] {
   const temOrigem = header.some((h) => /ORIGEM/i.test(h))
   const idxLoja = 8
   const idxConsultor = 9
+  const idxOrigem = temOrigem ? 10 : -1
   const idxVisita = temOrigem ? 12 : 11
+  const idxObservacao = idxVisita - 1
+  const idxFeedback = idxVisita + 1
+  const idxFechou = idxVisita + 2
 
   const out: LeadBruto[] = []
   for (let i = 1; i < rows.length; i++) {
@@ -141,6 +155,16 @@ function lerLeads(nomeArquivo: string): LeadBruto[] {
       consultorBruto,
       temAgendamento,
       compareceu,
+      clienteNome: (r[2] ?? '').trim(),
+      clienteTelefone: (r[3] ?? '').trim(),
+      motivo: (r[4] ?? '').trim(),
+      veiculoInteresse: (r[5] ?? '').trim(),
+      origem: idxOrigem >= 0 ? (r[idxOrigem] ?? '').trim() : '',
+      observacao: (r[idxObservacao] ?? '').trim(),
+      dataVisitaISO: dataBRParaISO(dataVisitaRaw),
+      visitaBruta: (r[idxVisita] ?? '').trim(),
+      feedback: (r[idxFeedback] ?? '').trim(),
+      fechou: (r[idxFechou] ?? '').trim(),
     })
   }
   return out
@@ -418,6 +442,41 @@ async function main() {
     const { error } = await supabase.from('sdr_dia').upsert(lote, { onConflict: 'data,sdr_id' })
     if (error) throw new Error(`Falha ao gravar sdr_dia (lote ${i}): ${error.message}`)
     console.log(`  sdr_dia: ${Math.min(i + LOTE, listaDias.length)}/${listaDias.length}`)
+  }
+
+  // ── Detalhe lead a lead (nome, telefone, veículo...) ────────────────────
+  // Só essa tabela é populada por este script, então "apaga tudo e regrava"
+  // é seguro e mantém idempotência entre execuções.
+  console.log('\n── Gravando detalhe individual (sdr_leads_historico) ──')
+  const { error: delError } = await supabase.from('sdr_leads_historico').delete().not('id', 'is', null)
+  if (delError) throw new Error(`Falha ao limpar sdr_leads_historico: ${delError.message}`)
+
+  const detalhes = todasLinhas.map((l) => {
+    const cfg = (l as any).cfgArquivo as { nomeAtual?: string; criarComo?: string; arquivo: string }
+    const unidadeNome = LOJA_PARA_UNIDADE[l.loja] ?? null
+    return {
+      data: l.dataLeadISO,
+      consultor_id: idConsultorFinal(l.consultorBruto),
+      lancado_por: idSdrFinal(cfg),
+      unidade_id: unidadeNome ? unidadeIdPorNome.get(unidadeNome) ?? null : null,
+      cliente_nome: l.clienteNome || '(sem nome)',
+      cliente_telefone: l.clienteTelefone || null,
+      motivo: l.motivo || null,
+      veiculo_interesse: l.veiculoInteresse || null,
+      origem: l.origem || null,
+      observacao: l.observacao || null,
+      data_visita: l.dataVisitaISO,
+      visita: l.visitaBruta || null,
+      feedback_vendedor: l.feedback || null,
+      fechou: l.fechou || null,
+    }
+  })
+
+  for (let i = 0; i < detalhes.length; i += LOTE) {
+    const lote = detalhes.slice(i, i + LOTE)
+    const { error } = await supabase.from('sdr_leads_historico').insert(lote)
+    if (error) throw new Error(`Falha ao gravar sdr_leads_historico (lote ${i}): ${error.message}`)
+    console.log(`  sdr_leads_historico: ${Math.min(i + LOTE, detalhes.length)}/${detalhes.length}`)
   }
 
   console.log('\n=== Concluído ===')
