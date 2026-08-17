@@ -8,9 +8,10 @@ import { podeAcessarSdr } from '@/lib/membros'
 const VISITAS_VALIDAS = new Set(['SIM', 'NÃO', 'REAGENDOU'])
 
 // Atualiza se o cliente compareceu ou não. Quando vira "NÃO", cria um
-// lembrete automático de follow-up pro consultor responsável — só nessa hora
-// (não retroativo pro histórico inteiro, senão seria uma enxurrada de
-// lembretes vencidos de leads de mais de um ano atrás).
+// lembrete automático de follow-up pra SDR que lançou o lead (é quem retoma
+// contato, não o consultor) — só nessa hora (não retroativo pro histórico
+// inteiro, senão seria uma enxurrada de lembretes vencidos de leads de mais
+// de um ano atrás).
 export async function atualizarVisita(formData: FormData) {
   const supabase = await createClient()
   const {
@@ -35,20 +36,20 @@ export async function atualizarVisita(formData: FormData) {
     .from('sdr_leads_historico')
     .update({ visita })
     .eq('id', id)
-    .select('cliente_nome, consultor_id')
-    .single<{ cliente_nome: string; consultor_id: string }>()
+    .select('cliente_nome, lancado_por')
+    .single<{ cliente_nome: string; lancado_por: string | null }>()
 
   if (error || !lead) {
     redirect(`${voltarPara}${voltarPara.includes('?') ? '&' : '?'}error=${encodeURIComponent('Não foi possível salvar')}`)
   }
 
-  if (visita === 'NÃO') {
+  if (visita === 'NÃO' && lead!.lancado_por) {
     const vencimento = new Date()
     vencimento.setDate(vencimento.getDate() + 3)
     await supabase.from('lembretes').insert({
-      consultor_id: lead!.consultor_id,
+      consultor_id: lead!.lancado_por,
       titulo: `Follow-up: ${lead!.cliente_nome} não compareceu`,
-      descricao: 'Cliente do histórico de leads da SDR marcado como "não compareceu" — vale retomar contato.',
+      descricao: 'Cliente do histórico de leads marcado como "não compareceu" — vale retomar contato.',
       data_vencimento: vencimento.toISOString(),
     })
   }
