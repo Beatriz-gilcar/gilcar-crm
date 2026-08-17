@@ -1,0 +1,23 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add *)",
+      "Bash(git push *)",
+      "Bash(npx supabase *)",
+      "Bash(npx vercel *)",
+      "Bash(gh --version)",
+      "Bash(gh api *)",
+      "Bash(curl -sI \"https://gilcar-crm.vercel.app/ordens\")",
+      "Bash(ls -la \"/c/Users/Beatriz Navarro/Desktop\" 2>&1 | grep -i sdr)",
+      "Read(//c/Users/Beatriz Navarro/Desktop/**)",
+      "Bash(ls -la \"/c/Users/Beatriz Navarro/Desktop/sdr\" 2>&1)",
+      "Read(//c/Users/Beatriz Navarro/Desktop/sdr/**)",
+      "Bash(git check-ignore *)",
+      "Bash(npx tsx *)",
+      "Bash(npm ls *)",
+      "Bash(node -e ' *)",
+      "Bash(cd \"C:\\\\Users\\\\Beatriz Navarro\\\\Desktop\\\\sdr\" && grep -n \"06/2024\\\\|/06/2024\" *.csv)",
+      "Bash(xxd)"
+    ]
+  }
+}
