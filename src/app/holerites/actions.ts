@@ -5,7 +5,9 @@ import { revalidatePath } from 'next/cache'
 import { headers } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 
-async function requireAdmin() {
+// Painel de gestão é restrito à Beatriz (flag gerencia_holerites), não a
+// qualquer admin — Junior, por exemplo, não gerencia esse módulo.
+async function requireGerenciaHolerites() {
   const supabase = await createClient()
   const {
     data: { user },
@@ -14,10 +16,10 @@ async function requireAdmin() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('cargo')
+    .select('gerencia_holerites')
     .eq('id', user.id)
-    .single<{ cargo: string }>()
-  if (profile?.cargo !== 'admin') redirect('/holerites')
+    .single<{ gerencia_holerites: boolean }>()
+  if (!profile?.gerencia_holerites) redirect('/holerites')
 
   return { supabase, user }
 }
@@ -33,7 +35,7 @@ async function pegaIpEUserAgent() {
 // substitui o arquivo e volta o status pra "enviado" (novo ciclo de
 // ciência/assinatura) — não dá pra corrigir arquivo sem reabrir o fluxo.
 export async function enviarHolerite(formData: FormData) {
-  const { supabase, user } = await requireAdmin()
+  const { supabase, user } = await requireGerenciaHolerites()
 
   const colaboradorId = formData.get('colaborador_id') as string
   const mesReferencia = formData.get('mes_referencia') as string

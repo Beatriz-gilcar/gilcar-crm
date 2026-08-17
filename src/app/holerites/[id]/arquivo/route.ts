@@ -17,10 +17,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('cargo')
+    .select('gerencia_holerites')
     .eq('id', user.id)
-    .single<{ cargo: string }>()
-  const isAdmin = profile?.cargo === 'admin'
+    .single<{ gerencia_holerites: boolean }>()
+  const gerenciaHolerites = profile?.gerencia_holerites ?? false
 
   const { data: holerite } = await supabase
     .from('holerites')
@@ -28,11 +28,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     .eq('id', id)
     .maybeSingle<{ id: string; colaborador_id: string; arquivo_path: string }>()
 
-  if (!holerite || (!isAdmin && holerite.colaborador_id !== user.id)) {
+  if (!holerite || (!gerenciaHolerites && holerite.colaborador_id !== user.id)) {
     return NextResponse.json({ error: 'não encontrado' }, { status: 404 })
   }
 
-  if (!isAdmin) {
+  if (!gerenciaHolerites) {
     await marcarVisualizado(holerite.id, user.id)
   }
 

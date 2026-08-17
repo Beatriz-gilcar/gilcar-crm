@@ -7,7 +7,7 @@ import { podeVerTudo } from '@/lib/membros'
 import { mesLabel, mesAtualISO } from '@/lib/metas'
 import { enviarHolerite } from '../actions'
 
-type ProfileSummary = { nome: string; cargo: string }
+type ProfileSummary = { nome: string; cargo: string; gerencia_holerites: boolean }
 type Pessoa = { id: string; nome: string }
 
 type HoleriteAdmin = {
@@ -42,13 +42,13 @@ export default async function HoleritesRhPage({
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('nome, cargo')
+    .select('nome, cargo, gerencia_holerites')
     .eq('id', user.id)
     .single<ProfileSummary>()
 
   const isAdmin = profile?.cargo === 'admin'
   const verTudo = podeVerTudo(profile?.cargo)
-  if (!isAdmin) redirect('/holerites')
+  if (!profile?.gerencia_holerites) redirect('/holerites')
 
   const admin = createAdminClient()
   const [{ data: pessoasData }, { data: adminData }] = await Promise.all([
@@ -70,6 +70,7 @@ export default async function HoleritesRhPage({
         cargo={profile?.cargo ?? ''}
         verTudo={verTudo}
         isAdmin={isAdmin}
+        gerenciaHolerites={profile?.gerencia_holerites ?? false}
         active="holerites-rh"
       />
       <div className="flex flex-1 flex-col gap-6 px-4 py-8 sm:px-10">

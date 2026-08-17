@@ -28,12 +28,16 @@ export function Topbar({
   // telas pra ler, e são as policies do banco que impedem ele de escrever.
   verTudo,
   isAdmin = false,
+  gerenciaHolerites = false,
   active,
 }: {
   nome: string
   cargo: string
   verTudo: boolean
   isAdmin?: boolean
+  // Painel de gestão de Holerites: restrito à Beatriz (flag por pessoa),
+  // não a qualquer admin — Junior é admin mas não gerencia esse módulo.
+  gerenciaHolerites?: boolean
   active: NavKey | ''
 }) {
   // Cargo pos_venda (Luciana) tem um nav enxuto: só o módulo dela e o Estoque
@@ -77,6 +81,9 @@ export function Topbar({
     // Consolidado de SDR: só o admin (Junior) vê.
     navItems.push({ key: 'sdr', href: '/sdr', label: 'SDR' })
     navItems.push({ key: 'admin', href: '/admin', label: 'Admin' })
+  }
+
+  if (gerenciaHolerites) {
     navItems.push({ key: 'holerites-rh', href: '/holerites/rh', label: 'Holerites RH' })
   }
 

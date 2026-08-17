@@ -5,7 +5,7 @@ import { podeVerTudo } from '@/lib/membros'
 import { mesLabel } from '@/lib/metas'
 import { assinarHolerite } from './actions'
 
-type ProfileSummary = { nome: string; cargo: string }
+type ProfileSummary = { nome: string; cargo: string; gerencia_holerites: boolean }
 
 type MeuHolerite = {
   id: string
@@ -38,12 +38,13 @@ export default async function HoleritesPage({
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('nome, cargo')
+    .select('nome, cargo, gerencia_holerites')
     .eq('id', user.id)
     .single<ProfileSummary>()
 
   const isAdmin = profile?.cargo === 'admin'
   const verTudo = podeVerTudo(profile?.cargo)
+  const gerenciaHolerites = profile?.gerencia_holerites ?? false
 
   const { data: meusData } = await supabase
     .from('holerites')
@@ -60,6 +61,7 @@ export default async function HoleritesPage({
         cargo={profile?.cargo ?? ''}
         verTudo={verTudo}
         isAdmin={isAdmin}
+        gerenciaHolerites={gerenciaHolerites}
         active="holerites"
       />
       <div className="flex flex-1 flex-col gap-4 px-4 py-8 sm:px-10">
@@ -68,7 +70,7 @@ export default async function HoleritesPage({
             <div className="sec-title" style={{ borderBottom: 'none', paddingBottom: 0 }}>
               Meus holerites
             </div>
-            {isAdmin && (
+            {gerenciaHolerites && (
               <Link href="/holerites/rh" className="btn btn-outline btn-sm">
                 Painel RH
               </Link>
