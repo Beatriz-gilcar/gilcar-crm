@@ -100,9 +100,9 @@ export function AbastecimentoAlertWidget() {
         .catch(() => {})
     }
     checar()
-    // Granularidade fina o bastante pra pegar a janela de repetição de 2h
-    // sem sobrecarregar a API.
-    const id = setInterval(checar, 10 * 60 * 1000)
+    // 30 min: a janela de repetição é de 2h, então isso ainda pega ela várias
+    // vezes sem sobrecarregar a cota de invocações da Vercel.
+    const id = setInterval(checar, 30 * 60 * 1000)
     return () => clearInterval(id)
   }, [])
 
