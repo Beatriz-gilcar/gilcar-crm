@@ -49,6 +49,42 @@ export async function criarLancamentoPosVenda(formData: FormData) {
   voltar(data)
 }
 
+export async function atualizarLancamentoPosVenda(formData: FormData) {
+  const supabase = await createClient()
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+  if (!user) redirect('/login')
+
+  const id = formData.get('id') as string
+  const data = (formData.get('data') as string) || new Date().toISOString().slice(0, 10)
+  const descricao = texto(formData, 'descricao')
+  const fornecedor = texto(formData, 'fornecedor')
+  const valor = parseBRL((formData.get('valor') as string) ?? '')
+
+  if (!descricao || !fornecedor || valor <= 0) {
+    voltar(data, 'Preencha descrição, fornecedor e um valor maior que zero')
+  }
+
+  const { error } = await supabase
+    .from('pos_venda_lancamentos')
+    .update({
+      veiculo_placa: texto(formData, 'veiculo_placa')?.toUpperCase() ?? null,
+      descricao,
+      fornecedor,
+      valor,
+      observacao: texto(formData, 'observacao'),
+    })
+    .eq('id', id)
+
+  if (error) {
+    voltar(data, 'Não foi possível salvar a edição')
+  }
+
+  revalidatePath('/pos-venda/lancamentos')
+  voltar(data)
+}
+
 export async function excluirLancamentoPosVenda(formData: FormData) {
   const supabase = await createClient()
   const id = formData.get('id') as string

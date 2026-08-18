@@ -5,7 +5,7 @@ import { ConfirmButton } from '@/components/ConfirmButton'
 import { MoedaInput } from '@/components/MoedaInput'
 import { podeVerTudo, podeEditarPosVenda } from '@/lib/membros'
 import { formatBRLNumber } from '@/lib/mask'
-import { criarLancamentoPosVenda, excluirLancamentoPosVenda } from './actions'
+import { criarLancamentoPosVenda, atualizarLancamentoPosVenda, excluirLancamentoPosVenda } from './actions'
 
 type Lancamento = {
   id: string
@@ -246,38 +246,92 @@ export default async function LancamentosPosVendaPage({
               {lancamentos.length === 0 ? (
                 <div className="empty-state">Nenhum lançamento nesse dia.</div>
               ) : (
-                lancamentos.map((l) => (
-                  <div
-                    key={l.id}
-                    className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border)] px-4 py-3 first:border-t-0"
-                  >
-                    <div>
-                      <p className="normal-case text-white">
-                        {l.descricao}
-                        {l.veiculo_placa ? ` · ${l.veiculo_placa}` : ''}
-                      </p>
-                      <p className="text-[.72rem] text-[var(--text-muted)]">
-                        {l.fornecedor}
-                        {l.observacao ? ` · ${l.observacao}` : ''}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <p className="font-bold text-white">R$ {formatBRLNumber(Number(l.valor))}</p>
-                      {podeEditar && (
-                        <form action={excluirLancamentoPosVenda}>
-                          <input type="hidden" name="id" value={l.id} />
-                          <input type="hidden" name="data" value={data} />
+                lancamentos.map((l) =>
+                  podeEditar ? (
+                    <details key={l.id} className="border-t border-[var(--border)] px-4 py-3 first:border-t-0">
+                      <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3">
+                        <div>
+                          <p className="normal-case text-white">
+                            {l.descricao}
+                            {l.veiculo_placa ? ` · ${l.veiculo_placa}` : ''}
+                          </p>
+                          <p className="text-[.72rem] text-[var(--text-muted)]">
+                            {l.fornecedor}
+                            {l.observacao ? ` · ${l.observacao}` : ''}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <p className="font-bold text-white">R$ {formatBRLNumber(Number(l.valor))}</p>
+                          <span className="text-[.72rem] font-bold text-[var(--coral)]">Editar</span>
+                        </div>
+                      </summary>
+
+                      <form action={atualizarLancamentoPosVenda} className="mt-3 flex flex-col gap-3">
+                        <input type="hidden" name="id" value={l.id} />
+                        <input type="hidden" name="data" value={data} />
+                        <div className="grid2">
+                          <div className="form-group" style={{ marginBottom: 0 }}>
+                            <label>Placa do veículo</label>
+                            <input name="veiculo_placa" type="text" defaultValue={l.veiculo_placa ?? ''} placeholder="ABC-1234" />
+                          </div>
+                          <div className="form-group" style={{ marginBottom: 0 }}>
+                            <label>Descrição</label>
+                            <input name="descricao" type="text" defaultValue={l.descricao} required />
+                          </div>
+                        </div>
+                        <div className="grid2">
+                          <div className="form-group" style={{ marginBottom: 0 }}>
+                            <label>Fornecedor</label>
+                            <input
+                              name="fornecedor"
+                              type="text"
+                              defaultValue={l.fornecedor}
+                              required
+                              list="fornecedores-sugeridos"
+                            />
+                          </div>
+                          <div className="form-group" style={{ marginBottom: 0 }}>
+                            <label>Valor</label>
+                            <MoedaInput name="valor" defaultValue={formatBRLNumber(Number(l.valor))} required />
+                          </div>
+                        </div>
+                        <div className="form-group" style={{ marginBottom: 0 }}>
+                          <label>Observação (opcional)</label>
+                          <input name="observacao" type="text" defaultValue={l.observacao ?? ''} />
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <button type="submit" className="btn btn-red btn-sm self-start">
+                            Salvar
+                          </button>
                           <ConfirmButton
                             className="text-[.72rem] font-bold text-[var(--danger)] hover:underline"
                             confirmMessage={`Excluir o lançamento "${l.descricao}" (R$ ${formatBRLNumber(Number(l.valor))})?`}
+                            formAction={excluirLancamentoPosVenda}
                           >
                             Excluir
                           </ConfirmButton>
-                        </form>
-                      )}
+                        </div>
+                      </form>
+                    </details>
+                  ) : (
+                    <div
+                      key={l.id}
+                      className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border)] px-4 py-3 first:border-t-0"
+                    >
+                      <div>
+                        <p className="normal-case text-white">
+                          {l.descricao}
+                          {l.veiculo_placa ? ` · ${l.veiculo_placa}` : ''}
+                        </p>
+                        <p className="text-[.72rem] text-[var(--text-muted)]">
+                          {l.fornecedor}
+                          {l.observacao ? ` · ${l.observacao}` : ''}
+                        </p>
+                      </div>
+                      <p className="font-bold text-white">R$ {formatBRLNumber(Number(l.valor))}</p>
                     </div>
-                  </div>
-                ))
+                  )
+                )
               )}
             </div>
           </div>
