@@ -79,7 +79,8 @@ export function LembretesWidget() {
       Notification.requestPermission().catch(() => {})
     }
     buscar()
-    const id = setInterval(buscar, 2 * 60 * 1000)
+    // 5 min em vez de 2: menos chamada ao servidor de fundo, cota da Vercel.
+    const id = setInterval(buscar, 5 * 60 * 1000)
     return () => clearInterval(id)
   }, [])
 

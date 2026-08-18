@@ -48,7 +48,10 @@ export function LembreteWatcher() {
     lembretesRef.current = lembretes
   }, [lembretes])
 
-  // Busca inicial + a cada 2 min; pede permissão de notificação uma vez.
+  // Busca inicial + a cada 5 min; pede permissão de notificação uma vez.
+  // (5 min em vez de 2: cada checagem é uma chamada ao servidor, e com todo
+  // mundo de tela aberta o dia todo isso pesa na cota da Vercel — ninguém
+  // precisa de precisão de 2 minutos pra um lembrete.)
   useEffect(() => {
     let cancel = false
     if ('Notification' in window && Notification.permission === 'default') {
@@ -63,7 +66,7 @@ export function LembreteWatcher() {
         .catch(() => {})
     }
     buscar()
-    const id = setInterval(buscar, 2 * 60 * 1000)
+    const id = setInterval(buscar, 5 * 60 * 1000)
     return () => {
       cancel = true
       clearInterval(id)
