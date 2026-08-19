@@ -53,6 +53,12 @@ export default async function LancamentosPosVendaPage({
   const verTudo = podeVerTudo(profile?.cargo)
   const isAdmin = profile?.cargo === 'admin'
   const podeEditar = podeEditarPosVenda(profile?.cargo)
+  // Mesma regra da RLS (migration 20260902000000): só quem lança e admin leem.
+  const podeAcessar = profile?.cargo === 'pos_venda' || isAdmin
+
+  if (!podeAcessar) {
+    return null
+  }
 
   const { data: lancamentosData } = await supabase
     .from('pos_venda_lancamentos')

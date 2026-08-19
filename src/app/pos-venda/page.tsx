@@ -53,6 +53,9 @@ export default async function PosVendaPage({
   const verTudo = podeVerTudo(profile?.cargo)
   const isAdmin = profile?.cargo === 'admin'
   const podeEditar = podeEditarPosVenda(profile?.cargo)
+  // Lançamentos (valores que a Luciana lança) são mais sensíveis que o
+  // registro em si — só ela e admin enxergam, nem gerência/supervisor.
+  const podeVerLancamentos = profile?.cargo === 'pos_venda' || isAdmin
 
   let query = supabase
     .from('pos_venda')
@@ -87,9 +90,11 @@ export default async function PosVendaPage({
             <Link href="/pos-venda" className="toggle-btn ativo">
               Registros
             </Link>
-            <Link href="/pos-venda/lancamentos" className="toggle-btn">
-              Lançamentos
-            </Link>
+            {podeVerLancamentos && (
+              <Link href="/pos-venda/lancamentos" className="toggle-btn">
+                Lançamentos
+              </Link>
+            )}
           </div>
 
           <div className="mt-3 flex items-center justify-between">
