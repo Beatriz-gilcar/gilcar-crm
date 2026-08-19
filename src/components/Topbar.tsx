@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { logout } from '@/app/actions'
+import { TopbarMais } from './TopbarMais'
 
 type NavKey =
   | 'ficha'
@@ -19,6 +20,17 @@ type NavKey =
   | 'mural'
   | 'holerites'
   | 'holerites-rh'
+
+// Abas usadas várias vezes por dia: continuam soltas no menu. O resto entra
+// no painel "Mais" (ver GRUPOS_MAIS) pra não estourar a largura — o nav
+// completo chegou a ter 14 abas numa fileira só.
+const FIXOS: NavKey[] = ['ficha', 'rotina', 'ordens', 'estoque', 'pos-venda', 'dashboard']
+
+const GRUPOS_MAIS: { titulo: string; chaves: NavKey[] }[] = [
+  { titulo: 'Atendimento', chaves: ['status-do-dia', 'abastecimento'] },
+  { titulo: 'Resultados', chaves: ['metas', 'premiacao'] },
+  { titulo: 'Equipe', chaves: ['mural', 'holerites', 'holerites-rh', 'sdr', 'admin'] },
+]
 
 export function Topbar({
   nome,
@@ -58,7 +70,11 @@ export function Topbar({
     : [
         { key: 'ficha', href: '/ficha', label: 'Ficha' },
         { key: 'rotina', href: '/rotina', label: 'Rotina do Dia' },
-        { key: 'abastecimento', href: '/abastecimento', label: 'Abastecimento' },
+        // Só quem cuida disso de fato: gerente da unidade (recebe o aviso) e
+        // admin (edita o dia junto com a Luciana). Consultor não usa esta tela.
+        ...(cargo === 'gerente' || isAdmin
+          ? [{ key: 'abastecimento' as const, href: '/abastecimento', label: 'Abastecimento' }]
+          : []),
         // Uma aba só: Consultores (Status do Dia) e Gerentes (Gerência) ficam
         // como sub-abas dentro da mesma tela.
         ...(verTudo ? [{ key: 'status-do-dia' as const, href: '/status-do-dia', label: 'Status do Dia' }] : []),
@@ -94,6 +110,19 @@ export function Topbar({
     navItems.push({ key: 'holerites-rh', href: '/holerites/rh', label: 'Holerites RH' })
   }
 
+  // Nav enxuto (SDR, pós-venda) já cabe numa linha só — só o nav completo
+  // (gerência pra cima) precisa do agrupamento em "Mais".
+  const agrupar = !isSdrCargo && !isPosVenda
+  const itensSoltos = agrupar ? navItems.filter((item) => FIXOS.includes(item.key)) : navItems
+  const grupos = agrupar
+    ? GRUPOS_MAIS.map((grupo) => ({
+        titulo: grupo.titulo,
+        itens: grupo.chaves
+          .map((chave) => navItems.find((item) => item.key === chave))
+          .filter((item): item is (typeof navItems)[number] => Boolean(item)),
+      }))
+    : []
+
   return (
     <>
       <div className="flex items-center justify-between border-b border-[var(--border)] bg-[var(--surface)] px-5 py-2.5">
@@ -109,7 +138,7 @@ export function Topbar({
         </div>
       </div>
       <div className="flex items-center gap-1 overflow-x-auto border-b border-[var(--border)] bg-[var(--surface)] px-3 py-2">
-        {navItems.map((item) => (
+        {itensSoltos.map((item) => (
           <Link
             key={item.key}
             href={item.href}
@@ -122,6 +151,7 @@ export function Topbar({
             {item.label}
           </Link>
         ))}
+        {agrupar && <TopbarMais grupos={grupos} active={active} />}
         <form action={logout} className="ml-auto flex items-center px-2">
           <button
             type="submit"
