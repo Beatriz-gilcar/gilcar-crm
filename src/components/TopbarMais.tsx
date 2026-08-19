@@ -6,6 +6,18 @@ import { useEffect, useRef, useState } from 'react'
 type Item = { key: string; href: string; label: string }
 type Grupo = { titulo: string; itens: Item[] }
 
+const ICONE: Record<string, string> = {
+  'status-do-dia': '☀️',
+  abastecimento: '⛽',
+  metas: '🎯',
+  premiacao: '🏆',
+  mural: '📌',
+  holerites: '💰',
+  'holerites-rh': '🧾',
+  sdr: '📞',
+  admin: '⚙️',
+}
+
 // Painel "Mais": reúne as abas menos usadas no dia a dia pra não estourar a
 // largura do menu principal (o admin sozinho já tinha 14 abas soltas). É pura
 // navegação — quem pode ver o quê continua decidido em Topbar.tsx, aqui só
@@ -43,24 +55,25 @@ export function TopbarMais({ grupos, active }: { grupos: Grupo[]; active: string
       </button>
 
       {aberto && (
-        <div className="absolute left-0 top-[calc(100%+8px)] z-20 w-[min(90vw,420px)] rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-2xl">
+        <div className="absolute left-0 top-[calc(100%+8px)] z-20 w-[min(92vw,460px)] rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-2xl">
           {grupoComItens.map((grupo, i) => (
             <div key={grupo.titulo} className={i > 0 ? 'mt-4 border-t border-[var(--border)] pt-4' : ''}>
-              <p className="mb-2 text-[.62rem] font-bold uppercase tracking-wide text-[var(--text-muted)]">
+              <p className="mb-2.5 text-[.62rem] font-bold uppercase tracking-wide text-[var(--text-muted)]">
                 {grupo.titulo}
               </p>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
                 {grupo.itens.map((item) => (
                   <Link
                     key={item.key}
                     href={item.href}
                     onClick={() => setAberto(false)}
-                    className={`rounded-xl border px-3 py-2.5 text-[.72rem] font-bold tracking-wide transition-colors ${
+                    className={`flex flex-col items-center gap-1.5 rounded-2xl border px-3 py-3 text-center text-[.68rem] font-bold leading-tight tracking-wide transition-colors ${
                       active === item.key
                         ? 'border-[var(--coral)] bg-[var(--coral-soft)] text-white'
                         : 'border-[var(--border)] bg-[var(--bg)] text-[var(--text-muted)] hover:border-[var(--coral)] hover:text-white'
                     }`}
                   >
+                    <span className="text-[1.3rem] normal-case leading-none">{ICONE[item.key] ?? '•'}</span>
                     {item.label}
                   </Link>
                 ))}

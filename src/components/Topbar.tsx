@@ -137,20 +137,28 @@ export function Topbar({
           {nome} · {cargo}
         </div>
       </div>
-      <div className="flex items-center gap-1 overflow-x-auto border-b border-[var(--border)] bg-[var(--surface)] px-3 py-2">
-        {itensSoltos.map((item) => (
-          <Link
-            key={item.key}
-            href={item.href}
-            className={`whitespace-nowrap rounded-full px-4 py-2 text-[.75rem] font-bold tracking-wide transition-colors ${
-              active === item.key
-                ? 'bg-[var(--coral)] text-white'
-                : 'text-[var(--text-muted)] hover:bg-white/5 hover:text-white'
-            }`}
-          >
-            {item.label}
-          </Link>
-        ))}
+      <div className="flex items-center gap-1 border-b border-[var(--border)] bg-[var(--surface)] px-3 py-2">
+        {/*
+          A rolagem horizontal fica só nesta faixa interna — se o "Mais" ficasse
+          dentro dela, o overflow-x:auto força overflow-y:auto junto (regra do
+          CSS: um eixo non-visible converte o outro), e isso corta o painel
+          absolute por baixo em vez de deixar ele flutuar livre.
+        */}
+        <div className="flex min-w-0 items-center gap-1 overflow-x-auto">
+          {itensSoltos.map((item) => (
+            <Link
+              key={item.key}
+              href={item.href}
+              className={`whitespace-nowrap rounded-full px-4 py-2 text-[.75rem] font-bold tracking-wide transition-colors ${
+                active === item.key
+                  ? 'bg-[var(--coral)] text-white'
+                  : 'text-[var(--text-muted)] hover:bg-white/5 hover:text-white'
+              }`}
+            >
+              {item.label}
+            </Link>
+          ))}
+        </div>
         {agrupar && <TopbarMais grupos={grupos} active={active} />}
         <form action={logout} className="ml-auto flex items-center px-2">
           <button
