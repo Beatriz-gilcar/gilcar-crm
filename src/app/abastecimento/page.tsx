@@ -43,6 +43,11 @@ export default async function AbastecimentoPage({
 
   const verTudo = podeVerTudo(profile?.cargo)
   const isAdmin = profile?.cargo === 'admin'
+  const podeAcessar = profile?.cargo === 'gerente' || profile?.cargo === 'pos_venda' || isAdmin
+
+  if (!podeAcessar) {
+    return null
+  }
   // Quem define o dia de abastecimento: a Luciana (pos_venda, quem cuida
   // disso de fato) e o admin.
   const podeEditar = isAdmin || profile?.cargo === 'pos_venda'
