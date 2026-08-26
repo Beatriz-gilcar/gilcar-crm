@@ -5,7 +5,7 @@ import { Topbar } from '@/components/Topbar'
 import { ToggleGroup } from '@/components/ToggleGroup'
 import { ConfirmButton } from '@/components/ConfirmButton'
 import { statusLabel } from '@/lib/veiculos'
-import { updateVeiculo, deleteVeiculo } from '../actions'
+import { updateVeiculo, deleteVeiculo, transferirVeiculo } from '../actions'
 import { podeVerTudo, isGerenciaCargo } from '@/lib/membros'
 
 type VeiculoDetail = {
@@ -55,7 +55,10 @@ export default async function VeiculoDetailPage({
     .single<ProfileSummary>()
   const verTudo = podeVerTudo(profile?.cargo)
   const isAdmin = profile?.cargo === 'admin'
-  const isGerencia = isGerenciaCargo(profile?.cargo)
+  // Gerência (gerente/supervisor) sem o admin: só transfere de unidade, não
+  // edita os demais campos nem exclui. isGerenciaCargo() inclui admin, então
+  // tira ele fora aqui pra não confundir com o fluxo de edição completa dele.
+  const isGerenciaSemAdmin = isGerenciaCargo(profile?.cargo) && !isAdmin
 
   const { data: veiculo } = await supabase
     .from('veiculos')
@@ -69,10 +72,15 @@ export default async function VeiculoDetailPage({
     notFound()
   }
 
-  const canEdit = isAdmin || veiculo.unidade_id === profile?.unidade_id
+  // Edição completa: admin (qualquer veículo) ou consultor na própria unidade.
+  const podeEditarCompleto = isAdmin || (profile?.cargo === 'consultor' && veiculo.unidade_id === profile?.unidade_id)
+  // Transferência: gerência, e só em veículo que já é da própria unidade —
+  // espelha a policy do banco (using: unidade_id = get_my_unidade()), que só
+  // deixa ela alcançar a linha se o veículo ainda está na unidade dela.
+  const podeTransferir = isGerenciaSemAdmin && veiculo.unidade_id === profile?.unidade_id
 
   let unidades: Unidade[] = []
-  if (isAdmin || isGerencia) {
+  if (isAdmin || podeTransferir) {
     const { data } = await supabase.from('unidades').select('id, nome').order('nome')
     unidades = data ?? []
   }
@@ -94,7 +102,7 @@ export default async function VeiculoDetailPage({
             ← Estoque
           </Link>
 
-          {!canEdit ? (
+          {!podeEditarCompleto ? (
             <div className="mt-2">
               <div className="sec-header">
                 <div className="sec-title">
@@ -113,9 +121,11 @@ export default async function VeiculoDetailPage({
                 <p>No site: {veiculo.no_site ? 'Sim' : 'Não'}</p>
                 <p>Unidade: {veiculo.unidades?.nome ?? '—'}</p>
                 {veiculo.observacao && <p>Obs: {veiculo.observacao}</p>}
-                <p className="mt-2 text-[.72rem] text-[var(--text-muted)]">
-                  Você não tem permissão para editar este veículo (fora da sua unidade).
-                </p>
+                {!podeTransferir && (
+                  <p className="mt-2 text-[.72rem] text-[var(--text-muted)]">
+                    Você não tem permissão para editar este veículo.
+                  </p>
+                )}
               </div>
             </div>
           ) : (
@@ -221,7 +231,7 @@ export default async function VeiculoDetailPage({
                   />
                 </div>
 
-                {isAdmin || isGerencia ? (
+                {isAdmin ? (
                   <div className="form-group" style={{ marginBottom: 0 }}>
                     <label>Unidade</label>
                     <select name="unidade_id" required defaultValue={veiculo.unidade_id}>
@@ -266,7 +276,39 @@ export default async function VeiculoDetailPage({
             </form>
           )}
 
-          {canEdit && (
+          {podeTransferir && (
+            <form action={transferirVeiculo} className="mt-3">
+              <div className="sec-header">
+                <div className="sec-title">Transferir de unidade</div>
+              </div>
+              <div className="sec-body sec-pad flex flex-col gap-3">
+                {error && (
+                  <p className="rounded-md bg-[#1a0808] px-3 py-2 text-[.78rem] normal-case text-[var(--red)]">
+                    {error}
+                  </p>
+                )}
+                <input type="hidden" name="id" value={veiculo.id} />
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label>Unidade</label>
+                  <select name="unidade_id" required defaultValue={veiculo.unidade_id}>
+                    {unidades.map((unidade) => (
+                      <option key={unidade.id} value={unidade.id}>
+                        {unidade.nome}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-[.68rem] normal-case text-[var(--text-muted)]">
+                    Mudar aqui transfere o veículo pro estoque da outra unidade.
+                  </p>
+                </div>
+                <button type="submit" className="btn btn-red self-start">
+                  Transferir
+                </button>
+              </div>
+            </form>
+          )}
+
+          {podeEditarCompleto && (
             <form action={deleteVeiculo} className="mt-3">
               <input type="hidden" name="id" value={veiculo.id} />
               <ConfirmButton

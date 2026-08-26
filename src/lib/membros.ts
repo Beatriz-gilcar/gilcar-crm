@@ -4,6 +4,7 @@ export const cargoLabel: Record<string, string> = {
   gerente: 'Gerente',
   pos_venda: 'Pós-venda',
   sdr: 'SDR',
+  social_media: 'Social Media',
   visualizador: 'Visualizador',
   admin: 'Admin',
 }
@@ -14,6 +15,7 @@ export const cargoBadgeClass: Record<string, string> = {
   gerente: 'badge-pendente',
   pos_venda: 'badge-neutro',
   sdr: 'badge-neutro',
+  social_media: 'badge-neutro',
   visualizador: 'badge-rejeitado',
   admin: 'badge-aprovado',
 }
@@ -61,5 +63,13 @@ export function podeFicarSemUnidade(cargo: string | null | undefined): boolean {
   // poder ser cadastrada com Unidade = "Todas".
   // sdr entra aqui porque a equipe de SDR é central (atende TODAS as unidades) —
   // precisa poder ser cadastrada com Unidade = "Todas".
-  return cargo === 'admin' || cargo === 'visualizador' || cargo === 'pos_venda' || cargo === 'sdr'
+  // social_media entra aqui pelo mesmo motivo: só vê o Estoque, de todas as
+  // unidades, não tem uma unidade "dona".
+  return (
+    cargo === 'admin' ||
+    cargo === 'visualizador' ||
+    cargo === 'pos_venda' ||
+    cargo === 'sdr' ||
+    cargo === 'social_media'
+  )
 }

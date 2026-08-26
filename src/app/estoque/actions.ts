@@ -84,6 +84,29 @@ export async function updateVeiculo(formData: FormData) {
   redirect('/estoque')
 }
 
+// Ação enxuta pra gerência: só muda unidade_id, não passa pelos outros
+// campos (veiculoFields exige marca/modelo/câmbio preenchidos, que a tela de
+// transferência nem mostra). A trava de quem pode mexer em qual veículo e de
+// que campo é a policy/trigger do banco, não este código.
+export async function transferirVeiculo(formData: FormData) {
+  const supabase = await createClient()
+  const id = formData.get('id') as string
+  const unidade_id = formData.get('unidade_id') as string
+
+  const { error } = await supabase
+    .from('veiculos')
+    .update({ unidade_id, updated_at: new Date().toISOString() })
+    .eq('id', id)
+
+  if (error) {
+    redirect(`/estoque/${id}?error=${encodeURIComponent('Não foi possível transferir o veículo')}`)
+  }
+
+  revalidatePath('/estoque')
+  revalidatePath(`/estoque/${id}`)
+  redirect('/estoque')
+}
+
 export async function deleteVeiculo(formData: FormData) {
   const supabase = await createClient()
   const id = formData.get('id') as string

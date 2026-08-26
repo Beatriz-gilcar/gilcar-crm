@@ -56,17 +56,26 @@ export function Topbar({
   // (que ela consulta, sem editar). Não polui a tela dela com abas que ela não
   // usa e cujas policies do banco não deixariam escrever mesmo.
   const isPosVenda = cargo === 'pos_venda'
-  // Equipe de SDR (inclui a gerente delas): nav enxuto, só a aba de lançamento.
+  // Equipe de SDR (inclui a gerente delas): nav enxuto, aba de lançamento +
+  // Estoque (consulta, sem editar).
   const isSdrCargo = cargo === 'sdr'
+  // Social Media (Pedro Fábio): só precisa ver o Estoque, pro conteúdo dos
+  // veículos. Nav mais enxuto de todos.
+  const isSocialMedia = cargo === 'social_media'
 
   const navItems: { key: NavKey; href: string; label: string }[] = isSdrCargo
-    ? [{ key: 'sdr', href: '/sdr', label: 'SDR' }]
+    ? [
+        { key: 'sdr', href: '/sdr', label: 'SDR' },
+        { key: 'estoque', href: '/estoque', label: 'Estoque' },
+      ]
     : isPosVenda
     ? [
         { key: 'pos-venda', href: '/pos-venda', label: 'Pós-venda' },
         { key: 'abastecimento', href: '/abastecimento', label: 'Abastecimento' },
         { key: 'estoque', href: '/estoque', label: 'Estoque' },
       ]
+    : isSocialMedia
+    ? [{ key: 'estoque', href: '/estoque', label: 'Estoque' }]
     : [
         { key: 'ficha', href: '/ficha', label: 'Ficha' },
         { key: 'rotina', href: '/rotina', label: 'Rotina do Dia' },
@@ -89,9 +98,9 @@ export function Topbar({
       ]
 
   // Mural e Holerites são de todo mundo, sem exceção de cargo — nos naves
-  // enxutos (SDR/pós-venda) entram no fim, já que o branch acima cobre a
-  // ordem específica pedida pro nav completo.
-  if (isSdrCargo || isPosVenda) {
+  // enxutos (SDR/pós-venda/social media) entram no fim, já que o branch acima
+  // cobre a ordem específica pedida pro nav completo.
+  if (isSdrCargo || isPosVenda || isSocialMedia) {
     navItems.push({ key: 'holerites', href: '/holerites', label: 'Holerites' })
     navItems.push({ key: 'mural', href: '/mural', label: 'Mural' })
   }
@@ -110,9 +119,9 @@ export function Topbar({
     navItems.push({ key: 'holerites-rh', href: '/holerites/rh', label: 'Holerites RH' })
   }
 
-  // Nav enxuto (SDR, pós-venda) já cabe numa linha só — só o nav completo
-  // (gerência pra cima) precisa do agrupamento em "Mais".
-  const agrupar = !isSdrCargo && !isPosVenda
+  // Nav enxuto (SDR, pós-venda, social media) já cabe numa linha só — só o
+  // nav completo (gerência pra cima) precisa do agrupamento em "Mais".
+  const agrupar = !isSdrCargo && !isPosVenda && !isSocialMedia
   const itensSoltos = agrupar ? navItems.filter((item) => FIXOS.includes(item.key)) : navItems
   const grupos = agrupar
     ? GRUPOS_MAIS.map((grupo) => ({

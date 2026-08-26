@@ -7,6 +7,14 @@ import { statusLabel, statusBadgeClass, cambioLabel, ehMoto } from '@/lib/veicul
 import { deleteVeiculo } from './actions'
 import { podeVerTudo } from '@/lib/membros'
 
+// Consultor edita só a própria unidade; admin edita tudo. Gerência (gerente/
+// supervisor) só transfere de unidade — isso acontece na tela de detalhe, não
+// na listagem — então aqui ela cai no mesmo "Ver" que os demais cargos
+// (sdr, social_media, visualizador, pos_venda, consultor de outra unidade).
+function podeEditarNaListagem(cargo: string | undefined, unidadeVeiculo: string, unidadeUsuario: string | null | undefined) {
+  return cargo === 'admin' || (cargo === 'consultor' && unidadeVeiculo === unidadeUsuario)
+}
+
 type Veiculo = {
   id: string
   marca: string
@@ -200,9 +208,11 @@ export default async function EstoquePage({
             <div className="sec-title" style={{ borderBottom: 'none', paddingBottom: 0 }}>
               Estoque
             </div>
-            <Link href="/estoque/new" className="btn btn-red btn-sm">
-              + Novo Veículo
-            </Link>
+            {(isAdmin || profile?.cargo === 'consultor') && (
+              <Link href="/estoque/new" className="btn btn-red btn-sm">
+                + Novo Veículo
+              </Link>
+            )}
           </div>
 
           <div className="chip-row mt-3">
@@ -292,7 +302,7 @@ export default async function EstoquePage({
                         <VeiculoRow
                           key={veiculo.id}
                           veiculo={veiculo}
-                          canEdit={isAdmin || veiculo.unidade_id === profile?.unidade_id}
+                          canEdit={podeEditarNaListagem(profile?.cargo, veiculo.unidade_id, profile?.unidade_id)}
                         />
                       ))}
                     {tipoAtivo === 'moto' &&
@@ -300,7 +310,7 @@ export default async function EstoquePage({
                         <VeiculoRow
                           key={veiculo.id}
                           veiculo={veiculo}
-                          canEdit={isAdmin || veiculo.unidade_id === profile?.unidade_id}
+                          canEdit={podeEditarNaListagem(profile?.cargo, veiculo.unidade_id, profile?.unidade_id)}
                         />
                       ))}
                     {tipoAtivo === '' && (
@@ -312,7 +322,7 @@ export default async function EstoquePage({
                               <VeiculoRow
                                 key={veiculo.id}
                                 veiculo={veiculo}
-                                canEdit={isAdmin || veiculo.unidade_id === profile?.unidade_id}
+                                canEdit={podeEditarNaListagem(profile?.cargo, veiculo.unidade_id, profile?.unidade_id)}
                               />
                             ))}
                           </>
@@ -324,7 +334,7 @@ export default async function EstoquePage({
                               <VeiculoRow
                                 key={veiculo.id}
                                 veiculo={veiculo}
-                                canEdit={isAdmin || veiculo.unidade_id === profile?.unidade_id}
+                                canEdit={podeEditarNaListagem(profile?.cargo, veiculo.unidade_id, profile?.unidade_id)}
                               />
                             ))}
                           </>
