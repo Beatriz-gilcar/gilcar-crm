@@ -6,20 +6,25 @@ import { formatBRL } from '@/lib/ordens'
 import { podeVerTudo, isFinanceiro } from '@/lib/membros'
 import { atualizarVencimentoBoleto, marcarBoletoPago, desmarcarBoletoPago } from './actions'
 
-type Boleto = {
+type Pagamento = {
   id: string
   valor: number
   vencimento: string | null
   pago: boolean
   pago_em: string | null
-  ordens_servico: {
-    cliente_nome: string
-    veiculo_marca: string
-    veiculo_modelo: string
-    veiculo_placa: string | null
-    unidades: { nome: string } | null
-  } | null
+  ordem_id: string
 }
+
+type OrdemResumo = {
+  id: string
+  cliente_nome: string
+  veiculo_marca: string
+  veiculo_modelo: string
+  veiculo_placa: string | null
+  unidades: { nome: string } | null
+}
+
+type Boleto = Pagamento & { ordem: OrdemResumo | null }
 
 type ProfileSummary = { nome: string; cargo: string }
 
@@ -77,14 +82,32 @@ export default async function BoletosPage({
     return null
   }
 
-  const { data: boletosData } = await supabase
+  // Duas consultas separadas em vez de um embed de 3 níveis
+  // (pagamentos → ordens_servico → unidades): mesma técnica já usada no
+  // filtro de forma de pagamento em /ordens, evita depender de como o
+  // PostgREST resolve join aninhado sob RLS.
+  const { data: pagamentosData, error: pagamentosError } = await supabase
     .from('ordens_servico_pagamentos')
-    .select(
-      'id, valor, vencimento, pago, pago_em, ordens_servico(cliente_nome, veiculo_marca, veiculo_modelo, veiculo_placa, unidades(nome))'
-    )
+    .select('id, valor, vencimento, pago, pago_em, ordem_id')
     .eq('forma', 'boleto')
-    .overrideTypes<Boleto[]>()
-  const boletos = boletosData ?? []
+    .overrideTypes<Pagamento[]>()
+  const pagamentos = pagamentosData ?? []
+
+  const ordemIds = [...new Set(pagamentos.map((p) => p.ordem_id))]
+  let ordensPorId = new Map<string, OrdemResumo>()
+  let ordensError = null
+  if (ordemIds.length > 0) {
+    const { data: ordensData, error } = await supabase
+      .from('ordens_servico')
+      .select('id, cliente_nome, veiculo_marca, veiculo_modelo, veiculo_placa, unidades(nome)')
+      .in('id', ordemIds)
+      .overrideTypes<OrdemResumo[]>()
+    ordensError = error
+    ordensPorId = new Map((ordensData ?? []).map((o) => [o.id, o]))
+  }
+
+  const boletos: Boleto[] = pagamentos.map((p) => ({ ...p, ordem: ordensPorId.get(p.ordem_id) ?? null }))
+  const erroConsulta = pagamentosError?.message || ordensError?.message || null
 
   const hoje = hojeISO()
   const comSituacao = boletos.map((b) => ({
@@ -143,9 +166,9 @@ export default async function BoletosPage({
             Boletos
           </div>
 
-          {error && (
+          {(error || erroConsulta) && (
             <p className="mt-3 rounded-2xl bg-[var(--danger-soft)] px-3 py-2 text-[.78rem] normal-case text-[var(--danger)]">
-              {error}
+              {error || erroConsulta}
             </p>
           )}
 
@@ -174,14 +197,14 @@ export default async function BoletosPage({
                     <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3">
                       <div>
                         <p className="normal-case text-white">
-                          {b.ordens_servico?.cliente_nome ?? '—'}
+                          {b.ordem?.cliente_nome ?? '—'}
                           <span className="ml-2 text-[.68rem] font-normal text-[var(--text-muted)]">
-                            {b.ordens_servico?.veiculo_marca} {b.ordens_servico?.veiculo_modelo}
-                            {b.ordens_servico?.veiculo_placa ? ` · ${b.ordens_servico.veiculo_placa}` : ''}
+                            {b.ordem?.veiculo_marca} {b.ordem?.veiculo_modelo}
+                            {b.ordem?.veiculo_placa ? ` · ${b.ordem.veiculo_placa}` : ''}
                           </span>
                         </p>
                         <p className="text-[.72rem] text-[var(--text-muted)]">
-                          {b.ordens_servico?.unidades?.nome ?? '—'}
+                          {b.ordem?.unidades?.nome ?? '—'}
                           {' · '}
                           Vencimento: {b.vencimento ? formatarData(b.vencimento) : 'não definido'}
                         </p>
@@ -209,7 +232,7 @@ export default async function BoletosPage({
                           <input type="hidden" name="id" value={b.id} />
                           <ConfirmButton
                             className="btn btn-outline btn-sm"
-                            confirmMessage={`Marcar o boleto de ${b.ordens_servico?.cliente_nome ?? 'cliente'} como pendente de novo?`}
+                            confirmMessage={`Marcar o boleto de ${b.ordem?.cliente_nome ?? 'cliente'} como pendente de novo?`}
                           >
                             Marcar como pendente
                           </ConfirmButton>
