@@ -5,6 +5,7 @@ export const cargoLabel: Record<string, string> = {
   pos_venda: 'Pós-venda',
   sdr: 'SDR',
   social_media: 'Social Media',
+  financeiro: 'Financeiro',
   visualizador: 'Visualizador',
   admin: 'Admin',
 }
@@ -16,6 +17,7 @@ export const cargoBadgeClass: Record<string, string> = {
   pos_venda: 'badge-neutro',
   sdr: 'badge-neutro',
   social_media: 'badge-neutro',
+  financeiro: 'badge-neutro',
   visualizador: 'badge-rejeitado',
   admin: 'badge-aprovado',
 }
@@ -55,6 +57,12 @@ export function podeAcessarSdr(cargo: string | null | undefined): boolean {
   return cargo === 'sdr' || cargo === 'admin'
 }
 
+// Cargo Financeiro: só vê e mexe em vencimento/pagamento dos boletos das
+// vendas. Espelha is_financeiro() no banco (migration 20260904020000).
+export function isFinanceiro(cargo: string | null | undefined): boolean {
+  return cargo === 'financeiro'
+}
+
 // Cargos de rede inteira, que podem ficar com Unidade = "Todas". O acesso deles
 // não passa por unidade nenhuma. Os demais precisam de unidade: é ela que define
 // o escopo do consultor/gerente, e a Ficha não grava sem.
@@ -65,11 +73,14 @@ export function podeFicarSemUnidade(cargo: string | null | undefined): boolean {
   // precisa poder ser cadastrada com Unidade = "Todas".
   // social_media entra aqui pelo mesmo motivo: só vê o Estoque, de todas as
   // unidades, não tem uma unidade "dona".
+  // financeiro entra aqui pelo mesmo motivo: cuida dos boletos de todas as
+  // unidades, não tem uma unidade "dona".
   return (
     cargo === 'admin' ||
     cargo === 'visualizador' ||
     cargo === 'pos_venda' ||
     cargo === 'sdr' ||
-    cargo === 'social_media'
+    cargo === 'social_media' ||
+    cargo === 'financeiro'
   )
 }

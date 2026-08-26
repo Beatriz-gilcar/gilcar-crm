@@ -20,6 +20,7 @@ type NavKey =
   | 'mural'
   | 'holerites'
   | 'holerites-rh'
+  | 'boletos'
 
 // Abas usadas várias vezes por dia: continuam soltas no menu. O resto entra
 // no painel "Mais" (ver GRUPOS_MAIS) pra não estourar a largura — o nav
@@ -62,6 +63,8 @@ export function Topbar({
   // Social Media (Pedro Fábio): só precisa ver o Estoque, pro conteúdo dos
   // veículos. Nav mais enxuto de todos.
   const isSocialMedia = cargo === 'social_media'
+  // Financeiro: só cuida dos boletos das vendas, nav igual de enxuto.
+  const isFinanceiroCargo = cargo === 'financeiro'
 
   const navItems: { key: NavKey; href: string; label: string }[] = isSdrCargo
     ? [
@@ -76,6 +79,8 @@ export function Topbar({
       ]
     : isSocialMedia
     ? [{ key: 'estoque', href: '/estoque', label: 'Estoque' }]
+    : isFinanceiroCargo
+    ? [{ key: 'boletos', href: '/boletos', label: 'Boletos' }]
     : [
         { key: 'ficha', href: '/ficha', label: 'Ficha' },
         { key: 'rotina', href: '/rotina', label: 'Rotina do Dia' },
@@ -98,9 +103,9 @@ export function Topbar({
       ]
 
   // Mural e Holerites são de todo mundo, sem exceção de cargo — nos naves
-  // enxutos (SDR/pós-venda/social media) entram no fim, já que o branch acima
-  // cobre a ordem específica pedida pro nav completo.
-  if (isSdrCargo || isPosVenda || isSocialMedia) {
+  // enxutos (SDR/pós-venda/social media/financeiro) entram no fim, já que o
+  // branch acima cobre a ordem específica pedida pro nav completo.
+  if (isSdrCargo || isPosVenda || isSocialMedia || isFinanceiroCargo) {
     navItems.push({ key: 'holerites', href: '/holerites', label: 'Holerites' })
     navItems.push({ key: 'mural', href: '/mural', label: 'Mural' })
   }
@@ -119,9 +124,9 @@ export function Topbar({
     navItems.push({ key: 'holerites-rh', href: '/holerites/rh', label: 'Holerites RH' })
   }
 
-  // Nav enxuto (SDR, pós-venda, social media) já cabe numa linha só — só o
-  // nav completo (gerência pra cima) precisa do agrupamento em "Mais".
-  const agrupar = !isSdrCargo && !isPosVenda && !isSocialMedia
+  // Nav enxuto (SDR, pós-venda, social media, financeiro) já cabe numa linha
+  // só — só o nav completo (gerência pra cima) precisa do agrupamento em "Mais".
+  const agrupar = !isSdrCargo && !isPosVenda && !isSocialMedia && !isFinanceiroCargo
   const itensSoltos = agrupar ? navItems.filter((item) => FIXOS.includes(item.key)) : navItems
   const grupos = agrupar
     ? GRUPOS_MAIS.map((grupo) => ({
