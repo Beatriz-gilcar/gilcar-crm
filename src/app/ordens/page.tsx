@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/server'
 import { Topbar } from '@/components/Topbar'
 import { ToggleGroup } from '@/components/ToggleGroup'
-import { tipoLabel, statusLabel, statusBadgeClass, formatBRL } from '@/lib/ordens'
+import { tipoLabel, statusLabel, statusBadgeClass, formaPagamentoLabel, formatBRL } from '@/lib/ordens'
 import { isGerenciaCargo, podeVerTudo, isSomenteLeitura } from '@/lib/membros'
 
 type Ordem = {
@@ -25,9 +25,16 @@ type Vendedor = { id: string; nome: string }
 export default async function OrdensPage({
   searchParams,
 }: {
-  searchParams: Promise<{ busca?: string; data_de?: string; data_ate?: string; vendedor_id?: string; status?: string }>
+  searchParams: Promise<{
+    busca?: string
+    data_de?: string
+    data_ate?: string
+    vendedor_id?: string
+    status?: string
+    forma_pagamento?: string
+  }>
 }) {
-  const { busca, data_de, data_ate, vendedor_id, status } = await searchParams
+  const { busca, data_de, data_ate, vendedor_id, status, forma_pagamento } = await searchParams
   const supabase = await createClient()
 
   const {
@@ -60,6 +67,22 @@ export default async function OrdensPage({
     vendedores = data ?? []
   }
 
+  // Filtro por forma de pagamento: só admin, e o dado mora numa tabela filha
+  // (uma venda pode ter mais de uma forma, ex.: parte PIX + parte boleto), então
+  // busca os ids das ordens com essa forma antes e filtra a lista por `id in (...)`.
+  // Um uuid inexistente no lugar de array vazio evita `.in('id', [])`, que o
+  // PostgREST não aceita.
+  const filtrarPorForma = isAdmin && !!forma_pagamento
+  let idsComForma: string[] = ['00000000-0000-0000-0000-000000000000']
+  if (filtrarPorForma) {
+    const { data: pagamentosData } = await supabase
+      .from('ordens_servico_pagamentos')
+      .select('ordem_id')
+      .eq('forma', forma_pagamento)
+    const ids = Array.from(new Set((pagamentosData ?? []).map((p) => p.ordem_id)))
+    if (ids.length > 0) idsComForma = ids
+  }
+
   let query = supabase
     .from('ordens_servico')
     .select(
@@ -72,6 +95,7 @@ export default async function OrdensPage({
   if (data_de) query = query.gte('data_venda', data_de)
   if (data_ate) query = query.lte('data_venda', data_ate)
   if (isGerencia && vendedor_id) query = query.eq('consultor_id', vendedor_id)
+  if (filtrarPorForma) query = query.in('id', idsComForma)
   if (busca) {
     const termo = `%${busca}%`
     query = query.or(`cliente_nome.ilike.${termo},veiculo_marca.ilike.${termo},veiculo_modelo.ilike.${termo},veiculo_placa.ilike.${termo}`)
@@ -94,6 +118,7 @@ export default async function OrdensPage({
     if (data_de) q.gte('data_venda', data_de)
     if (data_ate) q.lte('data_venda', data_ate)
     if (isGerencia && vendedor_id) q.eq('consultor_id', vendedor_id)
+    if (filtrarPorForma) q.in('id', idsComForma)
     if (busca) {
       const termo = `%${busca}%`
       q.or(`cliente_nome.ilike.${termo},veiculo_marca.ilike.${termo},veiculo_modelo.ilike.${termo},veiculo_placa.ilike.${termo}`)
@@ -180,6 +205,18 @@ export default async function OrdensPage({
                   ]}
                 />
               </div>
+              {isAdmin && (
+                <div className="chip-row">
+                  <ToggleGroup
+                    name="forma_pagamento"
+                    defaultValue={forma_pagamento ?? ''}
+                    options={[
+                      { value: '', label: 'Todas formas de pagamento' },
+                      ...Object.entries(formaPagamentoLabel).map(([value, label]) => ({ value, label })),
+                    ]}
+                  />
+                </div>
+              )}
             </form>
           </div>
           <div className="sec-body mt-4" style={{ padding: 0 }}>
