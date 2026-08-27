@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 type SupaClient = Awaited<ReturnType<typeof createClient>>
 
@@ -24,63 +25,78 @@ async function quemPodeSdr(supabase: SupaClient) {
   return { user, valida: p?.valida_sdr === true || p?.cargo === 'admin' }
 }
 
-type LinhaSdr = {
-  consultor_id: string
-  unidade_id: string | null
-  leads: number
-  agendamentos: number
-  comparecimentos: number
-  observacao?: string
-}
-
 function inteiro(v: unknown): number {
   const n = Math.trunc(Number(v))
   return Number.isFinite(n) && n >= 0 ? n : 0
 }
 
-export async function salvarSdrLeads(formData: FormData) {
+// Lead a lead (nome, telefone, motivo, veículo, origem), direto em
+// sdr_leads_historico — substitui o lançamento antigo por número agregado.
+// Agendamentos/comparecimentos do Consolidado passam a ser contados a partir
+// daqui (ver /sdr/page.tsx), não mais digitados à mão.
+export async function adicionarLeadSdr(formData: FormData) {
   const supabase = await createClient()
   const { user } = await quemPodeSdr(supabase)
 
   const data = (formData.get('data') as string) || ''
-  const raw = (formData.get('linhas') as string) || '[]'
-  if (!data) redirect(`/sdr?error=${encodeURIComponent('Escolha o dia')}`)
+  const consultor_id = (formData.get('consultor_id') as string) || ''
+  const cliente_nome = (formData.get('cliente_nome') as string)?.trim()
+  const cliente_telefone = (formData.get('cliente_telefone') as string)?.trim() || null
+  const motivo = (formData.get('motivo') as string)?.trim() || null
+  const veiculo_interesse = (formData.get('veiculo_interesse') as string)?.trim() || null
+  const origem = (formData.get('origem') as string)?.trim() || null
+  const observacao = (formData.get('observacao') as string)?.trim() || null
 
-  let linhas: LinhaSdr[]
-  try {
-    linhas = JSON.parse(raw)
-  } catch {
-    redirect(`/sdr?data=${data}&error=${encodeURIComponent('Erro ao ler os lançamentos')}`)
+  if (!data || !consultor_id || !cliente_nome) {
+    redirect(`/sdr?data=${data}&error=${encodeURIComponent('Preencha consultor e nome do cliente')}`)
   }
 
-  const registros = linhas
-    .filter((l) => l.consultor_id)
-    .map((l) => ({
-      data,
-      consultor_id: l.consultor_id,
-      unidade_id: l.unidade_id || null,
-      leads: inteiro(l.leads),
-      agendamentos: inteiro(l.agendamentos),
-      comparecimentos: inteiro(l.comparecimentos),
-      observacao: (l.observacao || '').trim() || null,
-      lancado_por: user.id,
-      updated_at: new Date().toISOString(),
-    }))
+  // Unidade do consultor: SDR não enxerga o perfil de outra pessoa pela RLS
+  // normal (só o próprio), então usa a service role pra essa consulta —
+  // mesmo padrão já usado nas listas de consultores/unidades desta página.
+  const admin = createAdminClient()
+  const { data: consultorProfile } = await admin
+    .from('profiles')
+    .select('unidade_id')
+    .eq('id', consultor_id)
+    .single<{ unidade_id: string | null }>()
 
-  if (registros.length > 0) {
-    // Cada SDR grava a própria linha por consultor/dia (chave inclui quem lançou).
-    const { error } = await supabase.from('sdr_leads').upsert(registros, { onConflict: 'data,consultor_id,lancado_por' })
-    if (error) {
-      redirect(`/sdr?data=${data}&error=${encodeURIComponent('Não foi possível salvar os lançamentos')}`)
-    }
+  const { error } = await supabase.from('sdr_leads_historico').insert({
+    data,
+    consultor_id,
+    unidade_id: consultorProfile?.unidade_id ?? null,
+    cliente_nome,
+    cliente_telefone,
+    motivo,
+    veiculo_interesse,
+    origem,
+    observacao,
+    lancado_por: user.id,
+  })
+
+  if (error) {
+    redirect(`/sdr?data=${data}&error=${encodeURIComponent('Não foi possível salvar o lead')}`)
   }
 
-  // Total de leads recebidos no dia — por SDR (cada uma o dela).
+  revalidatePath('/sdr')
+  revalidatePath('/sdr/historico')
+  redirect(`/sdr?data=${data}&success=salvo`)
+}
+
+// Total de leads recebidos no dia (número único da empresa, por SDR) — não
+// muda com o lançamento lead a lead, continua um número à parte.
+export async function salvarLeadsRecebidosProprio(formData: FormData) {
+  const supabase = await createClient()
+  const { user } = await quemPodeSdr(supabase)
+
+  const data = (formData.get('data') as string) || ''
+  if (!data) redirect('/sdr')
+
   const leadsRecebidos = inteiro(formData.get('leads_recebidos'))
-  const { error: errDia } = await supabase
+  const { error } = await supabase
     .from('sdr_dia')
     .upsert({ data, sdr_id: user.id, leads_recebidos: leadsRecebidos, updated_at: new Date().toISOString() }, { onConflict: 'data,sdr_id' })
-  if (errDia) {
+  if (error) {
     redirect(`/sdr?data=${data}&error=${encodeURIComponent('Não foi possível salvar o total de leads')}`)
   }
 

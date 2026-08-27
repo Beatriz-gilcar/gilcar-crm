@@ -120,7 +120,7 @@ export default async function SdrHistoricoPage({
           </div>
 
           <div className="sec-title" style={{ borderBottom: 'none', paddingBottom: 0 }}>
-            Histórico de leads (planilhas antigas)
+            Histórico de leads
           </div>
           <p className="mt-1 text-[.72rem] normal-case text-[var(--text-muted)]">
             {leads.length} resultado{leads.length === 1 ? '' : 's'} (máx. 300 por vez — use os filtros pra refinar).

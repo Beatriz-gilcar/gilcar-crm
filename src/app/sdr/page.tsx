@@ -3,14 +3,39 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { Topbar } from '@/components/Topbar'
-import { SdrLancamento } from '@/components/SdrLancamento'
 import { podeVerTudo } from '@/lib/membros'
-import { salvarSdrLeads, validarDiaSdr, salvarLeadsRecebidosSdrs } from './actions'
+import { normalizarTelefone } from '@/lib/whatsapp'
+import {
+  adicionarLeadSdr,
+  salvarLeadsRecebidosProprio,
+  validarDiaSdr,
+  salvarLeadsRecebidosSdrs,
+} from './actions'
+import { atualizarVisita } from './historico/actions'
 
 type Profile = { nome: string; cargo: string; valida_sdr: boolean | null }
 type Pessoa = { id: string; nome: string; unidade_id: string | null; ativo: boolean }
 type Unidade = { id: string; nome: string }
-type LeadRow = { consultor_id: string; unidade_id: string | null; agendamentos: number; comparecimentos: number; lancado_por: string }
+// Cada lead lançado conta como 1 agendamento; visita = 'SIM' conta como
+// comparecimento. Substitui os números digitados à mão de antes.
+type LeadRow = { consultor_id: string; unidade_id: string | null; lancado_por: string | null; visita: string | null }
+type LeadDoDia = {
+  id: string
+  cliente_nome: string
+  cliente_telefone: string | null
+  consultor_id: string
+  motivo: string | null
+  veiculo_interesse: string | null
+  origem: string | null
+  observacao: string | null
+  visita: string | null
+}
+
+const visitaBadge: Record<string, string> = {
+  SIM: 'badge-aprovado',
+  NÃO: 'badge-rejeitado',
+  REAGENDOU: 'badge-pendente',
+}
 
 function hojeBR(): string {
   return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' })
@@ -87,7 +112,12 @@ export default async function SdrPage({
     const fim = ate || hojeBR()
     const vDia = vdia || hojeBR()
     const [{ data: linhasData }, { data: diasData }, { data: valDia }, { data: leadsInicioData }] = await Promise.all([
-      supabase.from('sdr_leads').select('consultor_id, unidade_id, agendamentos, comparecimentos, lancado_por').gte('data', inicio).lte('data', fim).overrideTypes<LeadRow[]>(),
+      supabase
+        .from('sdr_leads_historico')
+        .select('consultor_id, unidade_id, lancado_por, visita')
+        .gte('data', inicio)
+        .lte('data', fim)
+        .overrideTypes<LeadRow[]>(),
       supabase.from('sdr_dia').select('sdr_id, leads_recebidos').gte('data', inicio).lte('data', fim).overrideTypes<{ sdr_id: string; leads_recebidos: number }[]>(),
       supabase.from('sdr_dia_validado').select('data').eq('data', vDia).maybeSingle<{ data: string }>(),
       // O lançamento por SDR fica ancorado no início do período (De) — é o
@@ -105,10 +135,12 @@ export default async function SdrPage({
     const geral = { ag: 0, comp: 0 }
     for (const l of linhas) {
       const u = l.unidade_id ?? '—'
-      const cl = porLoja.get(u) ?? { ag: 0, comp: 0 }; cl.ag += l.agendamentos; cl.comp += l.comparecimentos; porLoja.set(u, cl)
-      const cc = porConsultor.get(l.consultor_id) ?? { ag: 0, comp: 0 }; cc.ag += l.agendamentos; cc.comp += l.comparecimentos; porConsultor.set(l.consultor_id, cc)
-      const cs = porSdr.get(l.lancado_por) ?? { leads: 0, ag: 0, comp: 0 }; cs.ag += l.agendamentos; cs.comp += l.comparecimentos; porSdr.set(l.lancado_por, cs)
-      geral.ag += l.agendamentos; geral.comp += l.comparecimentos
+      const sdrId = l.lancado_por ?? '—'
+      const comp = l.visita === 'SIM' ? 1 : 0
+      const cl = porLoja.get(u) ?? { ag: 0, comp: 0 }; cl.ag += 1; cl.comp += comp; porLoja.set(u, cl)
+      const cc = porConsultor.get(l.consultor_id) ?? { ag: 0, comp: 0 }; cc.ag += 1; cc.comp += comp; porConsultor.set(l.consultor_id, cc)
+      const cs = porSdr.get(sdrId) ?? { leads: 0, ag: 0, comp: 0 }; cs.ag += 1; cs.comp += comp; porSdr.set(sdrId, cs)
+      geral.ag += 1; geral.comp += comp
     }
     let leadsRecebidos = 0
     for (const d of dias) {
@@ -301,28 +333,27 @@ export default async function SdrPage({
 
   // ── LANÇAMENTO (cada SDR preenche o dela) ────────────────────────────────
   const dia = dataParam || hojeBR()
-  const [{ data: leadsDia }, { data: val }, { data: diaRow }] = await Promise.all([
-    supabase.from('sdr_leads').select('consultor_id, agendamentos, comparecimentos, observacao').eq('data', dia).eq('lancado_por', user.id).overrideTypes<{ consultor_id: string; agendamentos: number; comparecimentos: number; observacao: string | null }[]>(),
+  const [{ data: leadsDiaData }, { data: val }, { data: diaRow }] = await Promise.all([
+    supabase
+      .from('sdr_leads_historico')
+      .select('id, cliente_nome, cliente_telefone, consultor_id, motivo, veiculo_interesse, origem, observacao, visita')
+      .eq('data', dia)
+      .eq('lancado_por', user.id)
+      .order('created_at', { ascending: false })
+      .overrideTypes<LeadDoDia[]>(),
     supabase.from('sdr_dia_validado').select('data').eq('data', dia).maybeSingle<{ data: string }>(),
     supabase.from('sdr_dia').select('leads_recebidos').eq('data', dia).eq('sdr_id', user.id).maybeSingle<{ leads_recebidos: number }>(),
   ])
+  const leadsDia = leadsDiaData ?? []
   const validado = Boolean(val)
   const leadsRecebidosInicial = diaRow?.leads_recebidos ?? 0
-  const valoresIniciais: Record<string, { leads: number; agendamentos: number; comparecimentos: number; observacao: string }> = {}
-  for (const l of leadsDia ?? [])
-    valoresIniciais[l.consultor_id] = {
-      leads: 0,
-      agendamentos: l.agendamentos,
-      comparecimentos: l.comparecimentos,
-      observacao: l.observacao ?? '',
-    }
-  // Depois de validado, ninguém mexe (a Thuane valida no consolidado).
+  // Depois de validado, ninguém lança lead novo (a Thuane valida no consolidado).
   const podeEditar = !validado
 
-  // Inativo só entra na lista do dia se já tiver lançamento NESSE dia — some
-  // do dia de hoje (não faz sentido lançar pra quem já saiu), mas continua
-  // aparecendo/editável num dia antigo que já tem o registro dele.
-  const idsComLancamentoHoje = new Set((leadsDia ?? []).map((l) => l.consultor_id))
+  // Inativo só entra no seletor do dia se já tiver lead lançado NESSE dia —
+  // some do dia de hoje (não faz sentido lançar pra quem já saiu), mas
+  // continua aparecendo num dia antigo que já tem lead dele.
+  const idsComLancamentoHoje = new Set(leadsDia.map((l) => l.consultor_id))
   const lojas = unidades.map((u) => ({
     id: u.id,
     nome: u.nome,
@@ -330,6 +361,8 @@ export default async function SdrPage({
       .filter((p) => p.unidade_id === u.id && (p.ativo || idsComLancamentoHoje.has(p.id)))
       .map((p) => ({ id: p.id, nome: p.nome })),
   }))
+
+  const voltarParaDia = `/sdr?data=${dia}`
 
   return (
     <>
@@ -358,18 +391,147 @@ export default async function SdrPage({
             </p>
           )}
 
+          <div className="mt-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3">
+            <form action={salvarLeadsRecebidosProprio} className="flex flex-wrap items-center justify-between gap-3">
+              <input type="hidden" name="data" value={dia} />
+              <div>
+                <p className="text-[.8rem] font-extrabold uppercase tracking-wide text-white">Leads recebidos (empresa)</p>
+                <p className="text-[.66rem] normal-case text-[var(--text-muted)]">Total de leads que a equipe recebeu no dia.</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min="0"
+                  inputMode="numeric"
+                  name="leads_recebidos"
+                  disabled={!podeEditar}
+                  defaultValue={leadsRecebidosInicial}
+                  aria-label="Total de leads recebidos"
+                  className="text-center font-extrabold"
+                  style={{ width: '7rem', flex: '0 0 auto', fontSize: '1.1rem' }}
+                />
+                {podeEditar && <button type="submit" className="btn btn-outline btn-sm">Salvar</button>}
+              </div>
+            </form>
+          </div>
+
+          {podeEditar && (
+            <form action={adicionarLeadSdr} className="card sec-pad mt-4 flex flex-col gap-3">
+              <input type="hidden" name="data" value={dia} />
+              <div className="sec-title" style={{ borderBottom: 'none', paddingBottom: 0, fontSize: '.82rem' }}>
+                Novo lead
+              </div>
+              <div className="grid2">
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label>Consultor</label>
+                  <select name="consultor_id" required defaultValue="">
+                    <option value="" disabled>
+                      Selecione...
+                    </option>
+                    {lojas.map((loja) => (
+                      <optgroup key={loja.id} label={loja.nome}>
+                        {loja.consultores.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.nome}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label>Nome do cliente</label>
+                  <input name="cliente_nome" type="text" required />
+                </div>
+              </div>
+              <div className="grid2">
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label>Telefone</label>
+                  <input name="cliente_telefone" type="text" placeholder="21999999999" />
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label>Motivo</label>
+                  <input name="motivo" type="text" placeholder="Ex.: Compra" />
+                </div>
+              </div>
+              <div className="grid2">
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label>Veículo de interesse</label>
+                  <input name="veiculo_interesse" type="text" placeholder="Ex.: Biz" />
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label>Origem</label>
+                  <input name="origem" type="text" placeholder="Ex.: WhatsApp, indicação..." />
+                </div>
+              </div>
+              <div className="form-group" style={{ marginBottom: 0 }}>
+                <label>Observação</label>
+                <input name="observacao" type="text" />
+              </div>
+              <button type="submit" className="btn btn-red self-start">
+                Adicionar lead
+              </button>
+            </form>
+          )}
+
           <div className="mt-4">
-            <SdrLancamento
-              data={dia}
-              lojas={lojas}
-              valoresIniciais={valoresIniciais}
-              leadsRecebidosInicial={leadsRecebidosInicial}
-              validado={validado}
-              podeValidar={false}
-              podeEditar={podeEditar}
-              salvarAction={salvarSdrLeads}
-              validarAction={validarDiaSdr}
-            />
+            <div className="sec-header">
+              <div className="sec-title">Leads lançados hoje ({leadsDia.length})</div>
+            </div>
+            <div className="sec-body" style={{ padding: 0 }}>
+              {leadsDia.length === 0 ? (
+                <div className="empty-state">Nenhum lead lançado nesse dia.</div>
+              ) : (
+                <div className="flex flex-col">
+                  {leadsDia.map((l) => {
+                    const telefoneWa = normalizarTelefone(l.cliente_telefone)
+                    return (
+                      <div key={l.id} className="flex flex-col gap-1 border-t border-[var(--border)] px-4 py-3 first:border-t-0">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          {telefoneWa ? (
+                            <a
+                              href={`https://wa.me/${telefoneWa}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-semibold text-white underline decoration-[var(--text-muted)] hover:text-[var(--coral)]"
+                            >
+                              {l.cliente_nome}
+                              {l.cliente_telefone ? ` · ${l.cliente_telefone}` : ''}
+                            </a>
+                          ) : (
+                            <p className="font-semibold text-white">{l.cliente_nome}</p>
+                          )}
+                          <form action={atualizarVisita} className="flex items-center gap-1">
+                            <input type="hidden" name="id" value={l.id} />
+                            <input type="hidden" name="voltar_para" value={voltarParaDia} />
+                            {(['SIM', 'NÃO', 'REAGENDOU'] as const).map((v) => (
+                              <button
+                                key={v}
+                                type="submit"
+                                name="visita"
+                                value={v}
+                                className={`badge ${l.visita === v ? (visitaBadge[v] ?? 'badge-neutro') : 'badge-neutro'}`}
+                                style={{ cursor: 'pointer', opacity: l.visita === v ? 1 : 0.45 }}
+                                title={`Marcar como ${v}`}
+                              >
+                                {v}
+                              </button>
+                            ))}
+                          </form>
+                        </div>
+                        <p className="text-[.72rem] text-[var(--text-muted)]">
+                          {nomeConsultor.get(l.consultor_id) ?? '—'}
+                        </p>
+                        <p className="normal-case text-white">
+                          {[l.motivo, l.veiculo_interesse, l.origem].filter(Boolean).join(' · ')}
+                        </p>
+                        {l.observacao && <p className="text-[.78rem] normal-case text-[var(--text-muted)]">{l.observacao}</p>}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
