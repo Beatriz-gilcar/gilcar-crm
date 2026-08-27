@@ -26,6 +26,20 @@ type Lead = {
   unidade_id: string | null
 }
 
+// Período em que o lançamento só guardava número por consultor/dia (sem nome
+// de cliente) — antes de o lançamento passar a ser lead a lead. Mostrado à
+// parte, sem link de WhatsApp nem toggle de visita (não tem o quê).
+type Agregado = {
+  data: string
+  consultor_id: string
+  unidade_id: string | null
+  lancado_por: string
+  agendamentos: number
+  comparecimentos: number
+}
+
+type Item = { tipo: 'lead'; data: string; lead: Lead } | { tipo: 'agregado'; data: string; agregado: Agregado }
+
 const visitaBadge: Record<string, string> = {
   SIM: 'badge-aprovado',
   NÃO: 'badge-rejeitado',
@@ -91,6 +105,35 @@ export default async function SdrHistoricoPage({
   const { data: leadsData } = await query.overrideTypes<Lead[]>()
   const leads = leadsData ?? []
 
+  // Números agregados de antes do lançamento virar lead a lead (sdr_leads).
+  // Sem nome de cliente pra filtrar por busca — some da lista quando a busca
+  // por cliente está ativa, já que nenhum registro aqui pode combinar com ela.
+  let agregados: Agregado[] = []
+  if (!busca) {
+    let queryAgregados = admin
+      .from('sdr_leads')
+      .select('data, consultor_id, unidade_id, lancado_por, agendamentos, comparecimentos')
+      .order('data', { ascending: false })
+      .limit(300)
+    if (de) queryAgregados = queryAgregados.gte('data', de)
+    if (ate) queryAgregados = queryAgregados.lte('data', ate)
+    if (sdrId) queryAgregados = queryAgregados.eq('lancado_por', sdrId)
+    if (consultorId) queryAgregados = queryAgregados.eq('consultor_id', consultorId)
+    const { data: agregadosData } = await queryAgregados.overrideTypes<Agregado[]>()
+    agregados = agregadosData ?? []
+  }
+  // Só mostra o que teve algum número, e só quando aquele consultor/dia não
+  // já tem lead detalhado (senão duplicaria a mesma informação duas vezes).
+  const chavesComLead = new Set(leads.map((l) => `${l.consultor_id}|${l.data}`))
+  const agregadosComInfo = agregados.filter(
+    (a) => (a.agendamentos > 0 || a.comparecimentos > 0) && !chavesComLead.has(`${a.consultor_id}|${a.data}`)
+  )
+
+  const itens: Item[] = [
+    ...leads.map((l): Item => ({ tipo: 'lead', data: l.data, lead: l })),
+    ...agregadosComInfo.map((a): Item => ({ tipo: 'agregado', data: a.data, agregado: a })),
+  ].sort((a, b) => (a.data < b.data ? 1 : a.data > b.data ? -1 : 0))
+
   const qs = new URLSearchParams()
   if (de) qs.set('de', de)
   if (ate) qs.set('ate', ate)
@@ -123,8 +166,9 @@ export default async function SdrHistoricoPage({
             Histórico de leads
           </div>
           <p className="mt-1 text-[.72rem] normal-case text-[var(--text-muted)]">
-            {leads.length} resultado{leads.length === 1 ? '' : 's'} (máx. 300 por vez — use os filtros pra refinar).
-            Clique no nome pra abrir o WhatsApp do cliente.
+            {itens.length} resultado{itens.length === 1 ? '' : 's'} (máx. 300 por vez — use os filtros pra refinar).
+            Clique no nome pra abrir o WhatsApp do cliente. Dias com &quot;Sem detalhe individual&quot; são de antes do
+            lançamento virar lead a lead — só o número ficou guardado, sem nome de cliente.
           </p>
 
           <form method="get" className="card sec-pad mt-3 flex flex-wrap items-end gap-3">
@@ -168,11 +212,36 @@ export default async function SdrHistoricoPage({
           </form>
 
           <div className="sec-body mt-4" style={{ padding: 0 }}>
-            {leads.length === 0 ? (
+            {itens.length === 0 ? (
               <div className="empty-state">Nenhum lead encontrado com esses filtros.</div>
             ) : (
               <div className="flex flex-col">
-                {leads.map((l) => {
+                {itens.map((item, i) => {
+                  if (item.tipo === 'agregado') {
+                    const a = item.agregado
+                    return (
+                      <div
+                        key={`ag-${a.consultor_id}-${a.data}-${i}`}
+                        className="flex flex-col gap-1 border-t border-[var(--border)] px-4 py-3 first:border-t-0"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="font-semibold text-[var(--text-muted)]">Sem detalhe individual</p>
+                          <span className="badge badge-neutro">
+                            {a.agendamentos} agend. · {a.comparecimentos} compar.
+                          </span>
+                        </div>
+                        <p className="text-[.72rem] text-[var(--text-muted)]">
+                          {new Date(`${a.data}T12:00:00`).toLocaleDateString('pt-BR')}
+                          {' · '}
+                          {nomePorId.get(a.consultor_id) ?? '—'}
+                          {a.unidade_id ? ` · ${unidadeNomePorId.get(a.unidade_id) ?? '—'}` : ''}
+                          {' · SDR: '}
+                          {nomePorId.get(a.lancado_por) ?? '—'}
+                        </p>
+                      </div>
+                    )
+                  }
+                  const l = item.lead
                   const telefoneWa = normalizarTelefone(l.cliente_telefone)
                   return (
                   <div
