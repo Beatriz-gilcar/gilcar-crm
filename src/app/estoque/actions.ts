@@ -107,6 +107,45 @@ export async function transferirVeiculo(formData: FormData) {
   redirect('/estoque')
 }
 
+// Registro Renave (entrada): quem já pode editar o veículo marca/desmarca —
+// mesma trava de acesso das ações acima, não precisa de checagem própria
+// aqui (a policy do banco já resolve).
+export async function marcarRenaveEntrada(formData: FormData) {
+  const supabase = await createClient()
+  const id = formData.get('id') as string
+
+  const { error } = await supabase
+    .from('veiculos')
+    .update({ renave_entrada_registrado: true, renave_entrada_em: new Date().toISOString().slice(0, 10) })
+    .eq('id', id)
+
+  if (error) {
+    redirect(`/estoque/${id}?error=${encodeURIComponent('Não foi possível marcar o registro Renave')}`)
+  }
+
+  revalidatePath('/estoque')
+  revalidatePath(`/estoque/${id}`)
+  redirect(`/estoque/${id}`)
+}
+
+export async function desmarcarRenaveEntrada(formData: FormData) {
+  const supabase = await createClient()
+  const id = formData.get('id') as string
+
+  const { error } = await supabase
+    .from('veiculos')
+    .update({ renave_entrada_registrado: false, renave_entrada_em: null })
+    .eq('id', id)
+
+  if (error) {
+    redirect(`/estoque/${id}?error=${encodeURIComponent('Não foi possível desmarcar o registro Renave')}`)
+  }
+
+  revalidatePath('/estoque')
+  revalidatePath(`/estoque/${id}`)
+  redirect(`/estoque/${id}`)
+}
+
 export async function deleteVeiculo(formData: FormData) {
   const supabase = await createClient()
   const id = formData.get('id') as string
