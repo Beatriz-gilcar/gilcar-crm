@@ -7,12 +7,16 @@ import { statusLabel, statusBadgeClass, cambioLabel, ehMoto } from '@/lib/veicul
 import { deleteVeiculo } from './actions'
 import { podeVerTudo } from '@/lib/membros'
 
-// Consultor edita só a própria unidade; admin edita tudo. Gerência (gerente/
-// supervisor) só transfere de unidade — isso acontece na tela de detalhe, não
-// na listagem — então aqui ela cai no mesmo "Ver" que os demais cargos
-// (sdr, social_media, visualizador, pos_venda, consultor de outra unidade).
+// Consultor e gerência (gerente/supervisor) editam a própria unidade; admin
+// edita tudo. Gerência ainda tem o poder extra de transferir pra outra
+// unidade (na tela de detalhe) — quem cai no "Ver" aqui é só quem não edita
+// aquele veículo mesmo (sdr, social_media, visualizador, pos_venda,
+// consultor/gerência de outra unidade).
 function podeEditarNaListagem(cargo: string | undefined, unidadeVeiculo: string, unidadeUsuario: string | null | undefined) {
-  return cargo === 'admin' || (cargo === 'consultor' && unidadeVeiculo === unidadeUsuario)
+  return (
+    cargo === 'admin' ||
+    ((cargo === 'consultor' || cargo === 'gerente' || cargo === 'supervisor') && unidadeVeiculo === unidadeUsuario)
+  )
 }
 
 type Veiculo = {
@@ -231,7 +235,7 @@ export default async function EstoquePage({
             <div className="sec-title" style={{ borderBottom: 'none', paddingBottom: 0 }}>
               Estoque
             </div>
-            {(isAdmin || profile?.cargo === 'consultor') && (
+            {(isAdmin || profile?.cargo === 'consultor' || profile?.cargo === 'gerente' || profile?.cargo === 'supervisor') && (
               <Link href="/estoque/new" className="btn btn-red btn-sm">
                 + Novo Veículo
               </Link>
