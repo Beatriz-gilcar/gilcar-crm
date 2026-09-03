@@ -30,7 +30,6 @@ type Veiculo = {
   observacao: string | null
   unidade_id: string
   unidades: { nome: string } | null
-  renave_entrada_registrado: boolean
 }
 
 type ProfileSummary = { nome: string; cargo: string; unidade_id: string | null }
@@ -39,7 +38,7 @@ type Unidade = { id: string; nome: string }
 function GrupoHeader({ titulo, total }: { titulo: string; total: number }) {
   return (
     <tr className="border-t border-[var(--border)] bg-white/[.03]">
-      <td colSpan={14} className="px-2 py-1.5 text-[.68rem] font-bold uppercase tracking-wide text-[var(--text-muted)]">
+      <td colSpan={13} className="px-2 py-1.5 text-[.68rem] font-bold uppercase tracking-wide text-[var(--text-muted)]">
         {titulo} ({total})
       </td>
     </tr>
@@ -66,11 +65,6 @@ function VeiculoRow({ veiculo, canEdit }: { veiculo: Veiculo; canEdit: boolean }
       <td className="px-2 py-2.5 normal-case text-[var(--text-muted)]">{veiculo.unidades?.nome ?? '—'}</td>
       <td className="px-2 py-2.5">
         <span className={`badge ${statusBadgeClass[veiculo.status]}`}>{statusLabel[veiculo.status]}</span>
-      </td>
-      <td className="px-2 py-2.5">
-        <span className={`badge ${veiculo.renave_entrada_registrado ? 'badge-aprovado' : 'badge-rejeitado'}`}>
-          {veiculo.renave_entrada_registrado ? 'OK' : 'Pendente'}
-        </span>
       </td>
       <td
         className="max-w-[150px] truncate px-2 py-2.5 normal-case text-[var(--text-muted)]"
@@ -127,11 +121,10 @@ export default async function EstoquePage({
     unidade_id?: string
     busca?: string
     tipo?: string
-    renave?: string
     error?: string
   }>
 }) {
-  const { status, unidade_id, busca, tipo, renave, error } = await searchParams
+  const { status, unidade_id, busca, tipo, error } = await searchParams
   const supabase = await createClient()
 
   const {
@@ -153,29 +146,22 @@ export default async function EstoquePage({
   const { data: unidadesData } = await supabase.from('unidades').select('id, nome').order('nome')
   const unidades = (unidadesData ?? []) as Unidade[]
 
-  const [{ count: total }, { count: disponiveis }, { count: reservados }, { count: vendidos }, { count: semRenave }] =
-    await Promise.all([
-      supabase.from('veiculos').select('*', { count: 'exact', head: true }),
-      supabase.from('veiculos').select('*', { count: 'exact', head: true }).eq('status', 'disponivel'),
-      supabase.from('veiculos').select('*', { count: 'exact', head: true }).eq('status', 'reservado'),
-      supabase.from('veiculos').select('*', { count: 'exact', head: true }).eq('status', 'vendido'),
-      // Prazo Renave (Resolução CONTRAN 1.026/2026): 28/09/2026 — conta em
-      // cima do estoque inteiro, sem filtro de tipo/unidade/busca, igual aos
-      // outros KPIs desta linha.
-      supabase.from('veiculos').select('*', { count: 'exact', head: true }).eq('renave_entrada_registrado', false),
-    ])
+  const [{ count: total }, { count: disponiveis }, { count: reservados }, { count: vendidos }] = await Promise.all([
+    supabase.from('veiculos').select('*', { count: 'exact', head: true }),
+    supabase.from('veiculos').select('*', { count: 'exact', head: true }).eq('status', 'disponivel'),
+    supabase.from('veiculos').select('*', { count: 'exact', head: true }).eq('status', 'reservado'),
+    supabase.from('veiculos').select('*', { count: 'exact', head: true }).eq('status', 'vendido'),
+  ])
 
   let query = supabase
     .from('veiculos')
     .select(
-      'id, marca, modelo, cambio, gnv, blindado, cor, ano, placa, licenciado_ate, no_site, status, observacao, unidade_id, unidades(nome), renave_entrada_registrado'
+      'id, marca, modelo, cambio, gnv, blindado, cor, ano, placa, licenciado_ate, no_site, status, observacao, unidade_id, unidades(nome)'
     )
     .order('created_at', { ascending: false })
 
   if (status) query = query.eq('status', status)
   if (unidade_id) query = query.eq('unidade_id', unidade_id)
-  if (renave === 'pendente') query = query.eq('renave_entrada_registrado', false)
-  if (renave === 'ok') query = query.eq('renave_entrada_registrado', true)
   if (busca) {
     const termo = `%${busca}%`
     query = query.or(`marca.ilike.${termo},modelo.ilike.${termo},placa.ilike.${termo}`)
@@ -219,10 +205,6 @@ export default async function EstoquePage({
             <div className="kpi-card">
               <div className="kpi-label">Vendidos</div>
               <div className="kpi-val">{vendidos ?? 0}</div>
-            </div>
-            <div className="kpi-card">
-              <div className="kpi-label">Sem registro Renave</div>
-              <div className="kpi-val">{semRenave ?? 0}</div>
             </div>
           </div>
 
@@ -287,17 +269,6 @@ export default async function EstoquePage({
                   ]}
                 />
               </div>
-              <div className="chip-row">
-                <ToggleGroup
-                  name="renave"
-                  defaultValue={renave ?? ''}
-                  options={[
-                    { value: '', label: 'Renave: todos' },
-                    { value: 'pendente', label: 'Renave pendente' },
-                    { value: 'ok', label: 'Renave OK' },
-                  ]}
-                />
-              </div>
             </form>
           </div>
 
@@ -325,7 +296,6 @@ export default async function EstoquePage({
                       <th className="px-2 py-2 font-bold">Licenciado</th>
                       <th className="px-2 py-2 font-bold">Unidade</th>
                       <th className="px-2 py-2 font-bold">Status</th>
-                      <th className="px-2 py-2 font-bold">Renave</th>
                       <th className="px-2 py-2 font-bold">Obs</th>
                       <th className="px-2 py-2" />
                     </tr>

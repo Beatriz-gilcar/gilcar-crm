@@ -5,7 +5,7 @@ import { Topbar } from '@/components/Topbar'
 import { ToggleGroup } from '@/components/ToggleGroup'
 import { ConfirmButton } from '@/components/ConfirmButton'
 import { statusLabel } from '@/lib/veiculos'
-import { updateVeiculo, deleteVeiculo, marcarRenaveEntrada, desmarcarRenaveEntrada } from '../actions'
+import { updateVeiculo, deleteVeiculo } from '../actions'
 import { podeVerTudo, isGerenciaCargo } from '@/lib/membros'
 
 type VeiculoDetail = {
@@ -24,8 +24,6 @@ type VeiculoDetail = {
   observacao: string | null
   unidade_id: string
   unidades: { nome: string } | null
-  renave_entrada_registrado: boolean
-  renave_entrada_em: string | null
 }
 
 type ProfileSummary = { nome: string; cargo: string; unidade_id: string | null }
@@ -65,7 +63,7 @@ export default async function VeiculoDetailPage({
   const { data: veiculo } = await supabase
     .from('veiculos')
     .select(
-      'id, marca, modelo, cambio, gnv, blindado, cor, ano, placa, licenciado_ate, no_site, status, observacao, unidade_id, unidades(nome), renave_entrada_registrado, renave_entrada_em'
+      'id, marca, modelo, cambio, gnv, blindado, cor, ano, placa, licenciado_ate, no_site, status, observacao, unidade_id, unidades(nome)'
     )
     .eq('id', id)
     .single<VeiculoDetail>()
@@ -111,12 +109,7 @@ export default async function VeiculoDetailPage({
                 <div className="sec-title">
                   {veiculo.marca} {veiculo.modelo}
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className={`badge ${veiculo.renave_entrada_registrado ? 'badge-aprovado' : 'badge-rejeitado'}`}>
-                    {veiculo.renave_entrada_registrado ? 'Renave OK' : 'Renave pendente'}
-                  </span>
-                  <span className={`badge badge-enviado`}>{statusLabel[veiculo.status]}</span>
-                </div>
+                <span className={`badge badge-enviado`}>{statusLabel[veiculo.status]}</span>
               </div>
               <div className="sec-body sec-pad flex flex-col gap-1 text-[.82rem] normal-case text-white">
                 <p>Placa: {veiculo.placa ?? '—'}</p>
@@ -138,9 +131,6 @@ export default async function VeiculoDetailPage({
             <form action={updateVeiculo} className="mt-2">
               <div className="sec-header">
                 <div className="sec-title">Editar veículo</div>
-                <span className={`badge ${veiculo.renave_entrada_registrado ? 'badge-aprovado' : 'badge-rejeitado'}`}>
-                  {veiculo.renave_entrada_registrado ? 'Renave OK' : 'Renave pendente'}
-                </span>
               </div>
               <div className="sec-body sec-pad flex flex-col gap-3">
                 {error && (
@@ -283,36 +273,6 @@ export default async function VeiculoDetailPage({
                 </div>
               </div>
             </form>
-          )}
-
-          {podeEditarCompleto && (
-            <div className="mt-3">
-              <div className="sec-header">
-                <div className="sec-title">Registro Renave (entrada)</div>
-              </div>
-              <div className="sec-body sec-pad flex flex-wrap items-center justify-between gap-3">
-                <p className="text-[.78rem] normal-case text-[var(--text-muted)]">
-                  {veiculo.renave_entrada_registrado
-                    ? `Registrado${veiculo.renave_entrada_em ? ` em ${new Date(`${veiculo.renave_entrada_em}T12:00:00`).toLocaleDateString('pt-BR')}` : ''}.`
-                    : 'Ainda não registrado no Renave.'}
-                </p>
-                {veiculo.renave_entrada_registrado ? (
-                  <form action={desmarcarRenaveEntrada}>
-                    <input type="hidden" name="id" value={veiculo.id} />
-                    <button type="submit" className="btn btn-outline btn-sm">
-                      Desmarcar
-                    </button>
-                  </form>
-                ) : (
-                  <form action={marcarRenaveEntrada}>
-                    <input type="hidden" name="id" value={veiculo.id} />
-                    <button type="submit" className="btn btn-red btn-sm">
-                      Marcar registro Renave feito
-                    </button>
-                  </form>
-                )}
-              </div>
-            </div>
           )}
 
           {podeEditarCompleto && (
