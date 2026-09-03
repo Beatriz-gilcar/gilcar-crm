@@ -7,16 +7,11 @@ import { statusLabel, statusBadgeClass, cambioLabel, ehMoto } from '@/lib/veicul
 import { deleteVeiculo } from './actions'
 import { podeVerTudo } from '@/lib/membros'
 
-// Consultor e gerência (gerente/supervisor) editam a própria unidade; admin
-// edita tudo. Gerência ainda tem o poder extra de transferir pra outra
-// unidade (na tela de detalhe) — quem cai no "Ver" aqui é só quem não edita
-// aquele veículo mesmo (sdr, social_media, visualizador, pos_venda,
-// consultor/gerência de outra unidade).
+// Consultor edita só a própria unidade. Gerência (gerente/supervisor) e
+// admin editam qualquer unidade — quem cai no "Ver" aqui é só consultor de
+// outra unidade (além de sdr, social_media, visualizador, pos_venda).
 function podeEditarNaListagem(cargo: string | undefined, unidadeVeiculo: string, unidadeUsuario: string | null | undefined) {
-  return (
-    cargo === 'admin' ||
-    ((cargo === 'consultor' || cargo === 'gerente' || cargo === 'supervisor') && unidadeVeiculo === unidadeUsuario)
-  )
+  return cargo === 'admin' || cargo === 'gerente' || cargo === 'supervisor' || (cargo === 'consultor' && unidadeVeiculo === unidadeUsuario)
 }
 
 type Veiculo = {

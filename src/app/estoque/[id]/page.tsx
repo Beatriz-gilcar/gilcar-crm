@@ -57,10 +57,9 @@ export default async function VeiculoDetailPage({
     .single<ProfileSummary>()
   const verTudo = podeVerTudo(profile?.cargo)
   const isAdmin = profile?.cargo === 'admin'
-  // Gerência (gerente/supervisor) sem o admin: edita como consultor na
-  // própria unidade, e ainda tem o poder extra de transferir pra outra
-  // unidade. isGerenciaCargo() inclui admin, então tira ele fora aqui pra
-  // não contar duas vezes.
+  // Gerência (gerente/supervisor) sem o admin: edita qualquer veículo, de
+  // qualquer unidade, igual admin. isGerenciaCargo() inclui admin, então
+  // tira ele fora aqui pra não contar duas vezes.
   const isGerenciaSemAdmin = isGerenciaCargo(profile?.cargo) && !isAdmin
 
   const { data: veiculo } = await supabase
@@ -75,14 +74,13 @@ export default async function VeiculoDetailPage({
     notFound()
   }
 
-  // Edição completa: admin (qualquer veículo), ou consultor/gerência na
-  // própria unidade — espelha a policy do banco (using: unidade_id =
-  // get_my_unidade()), que só deixa alcançar a linha nesse caso.
+  // Edição completa: admin ou gerência (qualquer veículo, qualquer unidade),
+  // ou consultor na própria unidade — espelha a policy do banco.
   const podeEditarCompleto =
-    isAdmin || ((profile?.cargo === 'consultor' || isGerenciaSemAdmin) && veiculo.unidade_id === profile?.unidade_id)
+    isAdmin || isGerenciaSemAdmin || (profile?.cargo === 'consultor' && veiculo.unidade_id === profile?.unidade_id)
   // Poder extra da gerência (e do admin): pode mudar a unidade do veículo
   // (transferir), coisa que consultor não faz.
-  const podeTransferirUnidade = isAdmin || (isGerenciaSemAdmin && veiculo.unidade_id === profile?.unidade_id)
+  const podeTransferirUnidade = isAdmin || isGerenciaSemAdmin
 
   let unidades: Unidade[] = []
   if (podeTransferirUnidade) {
