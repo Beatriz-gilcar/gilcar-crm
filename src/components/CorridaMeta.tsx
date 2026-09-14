@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { metaColor } from '@/lib/metas'
 
 type Item = { nome: string; realizado: number; meta: number }
@@ -63,13 +63,13 @@ export function CorridaMeta() {
   const [aberto, setAberto] = useState(false)
   const [aba, setAba] = useState<'lojas' | 'consultores'>('lojas')
   const [confete, setConfete] = useState(false)
+  const montadoRef = useRef(true)
 
-  useEffect(() => {
-    let cancel = false
+  const carregar = useCallback(() => {
     fetch('/api/corrida-meta')
       .then((r) => (r.ok ? r.json() : null))
       .then((d: Dados | null) => {
-        if (cancel || !d) return
+        if (!montadoRef.current || !d) return
         setDados(d)
         // Confete SÓ na primeira vez que cada meta é batida (não toda vez que
         // abre). Guardamos no navegador, por mês, quem já foi comemorado; o
@@ -86,7 +86,7 @@ export function CorridaMeta() {
           if (novos.length > 0) {
             setConfete(true)
             setTimeout(() => {
-              if (!cancel) setConfete(false)
+              if (montadoRef.current) setConfete(false)
             }, 5000)
             localStorage.setItem(chave, JSON.stringify([...celebrados, ...novos]))
           }
@@ -95,10 +95,22 @@ export function CorridaMeta() {
         }
       })
       .catch(() => {})
-    return () => {
-      cancel = true
-    }
   }, [])
+
+  useEffect(() => {
+    montadoRef.current = true
+    carregar()
+    return () => {
+      montadoRef.current = false
+    }
+  }, [carregar])
+
+  // O widget mora no layout raiz e monta uma vez só por sessão — sem isso,
+  // o placar fica preso aos números de quando a página carregou, mesmo com
+  // vendas lançadas depois. Refaz a busca toda vez que o painel é aberto.
+  useEffect(() => {
+    if (aberto) carregar()
+  }, [aberto, carregar])
 
   // Escondido enquanto não carrega ou quando não autenticado (ex.: /login).
   if (!dados) return null
