@@ -51,7 +51,8 @@
       "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" https://gilcar-crm.vercel.app/dashboard)",
       "WebFetch(domain:claude.ai)",
       "Bash(echo \"EXIT:$?\")",
-      "Bash(timeout 30 npx vercel ls gilcar-crm)"
+      "Bash(timeout 30 npx vercel ls gilcar-crm)",
+      "Bash(awk -F= '{print $1, \"-> length:\", length\\($0\\)-length\\($1\\)-1}' .env.local)"
     ],
     "additionalDirectories": [
       "C:\\Users\\Beatriz Navarro\\Documents\\GitHub\\gilcar-crm\\.claude"
