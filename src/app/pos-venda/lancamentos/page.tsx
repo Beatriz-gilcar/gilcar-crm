@@ -30,10 +30,12 @@ function hojeISO() {
 export default async function LancamentosPosVendaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ data?: string; error?: string }>
+  searchParams: Promise<{ data?: string; busca?: string; error?: string }>
 }) {
-  const { data: dataParam, error } = await searchParams
+  const { data: dataParam, busca: buscaParam, error } = await searchParams
   const data = dataParam || hojeISO()
+  const busca = (buscaParam ?? '').trim()
+  const emBusca = busca.length > 0
   const supabase = await createClient()
 
   const {
@@ -60,12 +62,22 @@ export default async function LancamentosPosVendaPage({
     return null
   }
 
-  const { data: lancamentosData } = await supabase
+  // Busca acha lançamento em qualquer dia (ex.: achar os abastecimentos já
+  // lançados), ignorando o filtro de dia — que só faz sentido pra "hoje"/
+  // "um dia específico". Sem busca, comportamento de sempre: só o dia
+  // escolhido.
+  let query = supabase
     .from('pos_venda_lancamentos')
     .select('id, data, veiculo_placa, descricao, fornecedor, valor, observacao')
-    .eq('data', data)
-    .order('created_at', { ascending: true })
-    .overrideTypes<Lancamento[]>()
+  query = emBusca
+    ? query
+        .or(`descricao.ilike.%${busca}%,fornecedor.ilike.%${busca}%,veiculo_placa.ilike.%${busca}%,observacao.ilike.%${busca}%`)
+        .order('data', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(100)
+    : query.eq('data', data).order('created_at', { ascending: true })
+
+  const { data: lancamentosData } = await query.overrideTypes<Lancamento[]>()
   const lancamentos = lancamentosData ?? []
 
   // Sugestão de fornecedor já usado, pra não fragmentar o total por causa de
@@ -139,9 +151,9 @@ export default async function LancamentosPosVendaPage({
             </Link>
           </div>
 
-          <div className="mt-3 flex items-center justify-between">
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
             <div className="sec-title" style={{ borderBottom: 'none', paddingBottom: 0 }}>
-              Lançamentos do dia
+              {emBusca ? 'Busca de lançamentos' : 'Lançamentos do dia'}
             </div>
             <form method="get" className="flex items-end gap-2">
               <div className="form-group" style={{ marginBottom: 0, minWidth: 160 }}>
@@ -153,13 +165,33 @@ export default async function LancamentosPosVendaPage({
             </form>
           </div>
 
+          {/* Acha lançamento em qualquer dia (ex.: abastecimento já lançado
+              num posto) — sem essa busca, dava pra procurar só dia por dia. */}
+          <form method="get" className="mt-2 flex items-end gap-2">
+            <div className="search-wrap flex-1">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="11" cy="11" r="7" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+              <input name="busca" type="text" placeholder="Buscar por placa, posto/fornecedor ou descrição" defaultValue={busca} />
+            </div>
+            <button type="submit" className="btn btn-outline btn-sm">
+              Buscar
+            </button>
+            {emBusca && (
+              <Link href={`/pos-venda/lancamentos?data=${data}`} className="btn btn-outline btn-sm">
+                Limpar
+              </Link>
+            )}
+          </form>
+
           {error && (
             <p className="mt-3 rounded-2xl bg-[var(--danger-soft)] px-3 py-2 text-[.78rem] normal-case text-[var(--danger)]">
               {error}
             </p>
           )}
 
-          {podeEditar && (
+          {podeEditar && !emBusca && (
             <form action={criarLancamentoPosVenda} className="card sec-pad mt-4 flex flex-col gap-3">
               <input type="hidden" name="data" value={data} />
               <div className="grid2">
@@ -199,7 +231,7 @@ export default async function LancamentosPosVendaPage({
 
           <div className="kpi-grid mt-4">
             <div className="kpi-card">
-              <div className="kpi-label">Total do dia</div>
+              <div className="kpi-label">{emBusca ? 'Total encontrado' : 'Total do dia'}</div>
               <div className="kpi-val">R$ {formatBRLNumber(totalDia)}</div>
             </div>
             <div className="kpi-card">
@@ -212,7 +244,7 @@ export default async function LancamentosPosVendaPage({
             </div>
           </div>
 
-          {lancamentos.length > 0 && (
+          {lancamentos.length > 0 && !emBusca && (
             <a
               href={linkWhatsapp}
               target="_blank"
@@ -246,11 +278,13 @@ export default async function LancamentosPosVendaPage({
 
           <div className="mt-4">
             <div className="sec-header">
-              <div className="sec-title">Itens lançados</div>
+              <div className="sec-title">{emBusca ? `Resultados da busca (${lancamentos.length})` : 'Itens lançados'}</div>
             </div>
             <div className="sec-body" style={{ padding: 0 }}>
               {lancamentos.length === 0 ? (
-                <div className="empty-state">Nenhum lançamento nesse dia.</div>
+                <div className="empty-state">
+                  {emBusca ? 'Nenhum lançamento encontrado.' : 'Nenhum lançamento nesse dia.'}
+                </div>
               ) : (
                 lancamentos.map((l) =>
                   podeEditar ? (
@@ -258,6 +292,7 @@ export default async function LancamentosPosVendaPage({
                       <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3">
                         <div>
                           <p className="normal-case text-white">
+                            {emBusca && `${l.data.split('-').reverse().join('/')} · `}
                             {l.descricao}
                             {l.veiculo_placa ? ` · ${l.veiculo_placa}` : ''}
                           </p>
@@ -274,7 +309,7 @@ export default async function LancamentosPosVendaPage({
 
                       <form action={atualizarLancamentoPosVenda} className="mt-3 flex flex-col gap-3">
                         <input type="hidden" name="id" value={l.id} />
-                        <input type="hidden" name="data" value={data} />
+                        <input type="hidden" name="data" value={l.data} />
                         <div className="grid2">
                           <div className="form-group" style={{ marginBottom: 0 }}>
                             <label>Placa do veículo</label>
@@ -326,6 +361,7 @@ export default async function LancamentosPosVendaPage({
                     >
                       <div>
                         <p className="normal-case text-white">
+                          {emBusca && `${l.data.split('-').reverse().join('/')} · `}
                           {l.descricao}
                           {l.veiculo_placa ? ` · ${l.veiculo_placa}` : ''}
                         </p>
