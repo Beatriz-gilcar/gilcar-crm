@@ -30,12 +30,17 @@ function hojeISO() {
 export default async function LancamentosPosVendaPage({
   searchParams,
 }: {
-  searchParams: Promise<{ data?: string; busca?: string; error?: string }>
+  searchParams: Promise<{ data?: string; busca?: string; de?: string; ate?: string; error?: string }>
 }) {
-  const { data: dataParam, busca: buscaParam, error } = await searchParams
+  const { data: dataParam, busca: buscaParam, de: deParam, ate: ateParam, error } = await searchParams
   const data = dataParam || hojeISO()
   const busca = (buscaParam ?? '').trim()
-  const emBusca = busca.length > 0
+  const de = (deParam ?? '').trim()
+  const ate = (ateParam ?? '').trim()
+  // Busca (texto e/ou período) é um modo à parte do "um dia específico" de
+  // cima — só um período, sem texto, também entra aqui (ex.: ver tudo de
+  // uma semana).
+  const emBusca = busca.length > 0 || de.length > 0 || ate.length > 0
   const supabase = await createClient()
 
   const {
@@ -69,13 +74,18 @@ export default async function LancamentosPosVendaPage({
   let query = supabase
     .from('pos_venda_lancamentos')
     .select('id, data, veiculo_placa, descricao, fornecedor, valor, observacao')
-  query = emBusca
-    ? query
-        .or(`descricao.ilike.%${busca}%,fornecedor.ilike.%${busca}%,veiculo_placa.ilike.%${busca}%,observacao.ilike.%${busca}%`)
-        .order('data', { ascending: false })
-        .order('created_at', { ascending: false })
-        .limit(100)
-    : query.eq('data', data).order('created_at', { ascending: true })
+  if (emBusca) {
+    if (busca) {
+      query = query.or(
+        `descricao.ilike.%${busca}%,fornecedor.ilike.%${busca}%,veiculo_placa.ilike.%${busca}%,observacao.ilike.%${busca}%`
+      )
+    }
+    if (de) query = query.gte('data', de)
+    if (ate) query = query.lte('data', ate)
+    query = query.order('data', { ascending: false }).order('created_at', { ascending: false }).limit(300)
+  } else {
+    query = query.eq('data', data).order('created_at', { ascending: true })
+  }
 
   const { data: lancamentosData } = await query.overrideTypes<Lancamento[]>()
   const lancamentos = lancamentosData ?? []
@@ -166,14 +176,23 @@ export default async function LancamentosPosVendaPage({
           </div>
 
           {/* Acha lançamento em qualquer dia (ex.: abastecimento já lançado
-              num posto) — sem essa busca, dava pra procurar só dia por dia. */}
-          <form method="get" className="mt-2 flex items-end gap-2">
-            <div className="search-wrap flex-1">
+              num posto) — sem essa busca, dava pra procurar só dia por dia.
+              Texto e período são independentes: dá pra usar só um dos dois. */}
+          <form method="get" className="mt-2 flex flex-wrap items-end gap-2">
+            <div className="search-wrap flex-1" style={{ minWidth: 220 }}>
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <circle cx="11" cy="11" r="7" />
                 <line x1="21" y1="21" x2="16.65" y2="16.65" />
               </svg>
               <input name="busca" type="text" placeholder="Buscar por placa, posto/fornecedor ou descrição" defaultValue={busca} />
+            </div>
+            <div className="form-group" style={{ marginBottom: 0, minWidth: 150 }}>
+              <label>De</label>
+              <input type="date" name="de" defaultValue={de} />
+            </div>
+            <div className="form-group" style={{ marginBottom: 0, minWidth: 150 }}>
+              <label>Até</label>
+              <input type="date" name="ate" defaultValue={ate} />
             </div>
             <button type="submit" className="btn btn-outline btn-sm">
               Buscar
