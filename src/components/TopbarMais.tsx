@@ -14,6 +14,7 @@ const ICONE: Record<string, string> = {
   mural: '📌',
   holerites: '💰',
   'holerites-rh': '🧾',
+  despesas: '💸',
   sdr: '📞',
   admin: '⚙️',
 }

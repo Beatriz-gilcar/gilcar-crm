@@ -21,6 +21,7 @@ type NavKey =
   | 'holerites'
   | 'holerites-rh'
   | 'boletos'
+  | 'despesas'
 
 // Abas usadas várias vezes por dia: continuam soltas no menu. O resto entra
 // no painel "Mais" (ver GRUPOS_MAIS) pra não estourar a largura — o nav
@@ -29,7 +30,7 @@ const FIXOS: NavKey[] = ['ficha', 'rotina', 'ordens', 'estoque', 'pos-venda', 'd
 
 const GRUPOS_MAIS: { titulo: string; chaves: NavKey[] }[] = [
   { titulo: 'Atendimento', chaves: ['status-do-dia', 'abastecimento'] },
-  { titulo: 'Resultados', chaves: ['metas', 'premiacao'] },
+  { titulo: 'Resultados', chaves: ['metas', 'premiacao', 'despesas'] },
   { titulo: 'Equipe', chaves: ['mural', 'holerites', 'holerites-rh', 'sdr', 'admin'] },
 ]
 
@@ -42,6 +43,7 @@ export function Topbar({
   verTudo,
   isAdmin = false,
   gerenciaHolerites = false,
+  veDespesas = false,
   active,
 }: {
   nome: string
@@ -51,6 +53,9 @@ export function Topbar({
   // Painel de gestão de Holerites: restrito à Beatriz (flag por pessoa),
   // não a qualquer admin — Junior é admin mas não gerencia esse módulo.
   gerenciaHolerites?: boolean
+  // Despesas por unidade: restrito ao Junior (flag por pessoa), mesmo
+  // padrão de gerenciaHolerites — não é "todo admin".
+  veDespesas?: boolean
   active: NavKey | ''
 }) {
   // Cargo pos_venda (Luciana) tem um nav enxuto: só o módulo dela e o Estoque
@@ -122,6 +127,10 @@ export function Topbar({
 
   if (gerenciaHolerites) {
     navItems.push({ key: 'holerites-rh', href: '/holerites/rh', label: 'Holerites RH' })
+  }
+
+  if (veDespesas) {
+    navItems.push({ key: 'despesas', href: '/despesas', label: 'Despesas' })
   }
 
   // Nav enxuto (SDR, pós-venda, social media, financeiro) já cabe numa linha
