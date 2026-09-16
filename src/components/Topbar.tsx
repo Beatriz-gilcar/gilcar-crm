@@ -22,6 +22,7 @@ type NavKey =
   | 'holerites-rh'
   | 'boletos'
   | 'despesas'
+  | 'pagamentos'
 
 // Abas usadas várias vezes por dia: continuam soltas no menu. O resto entra
 // no painel "Mais" (ver GRUPOS_MAIS) pra não estourar a largura — o nav
@@ -30,7 +31,7 @@ const FIXOS: NavKey[] = ['ficha', 'rotina', 'ordens', 'estoque', 'pos-venda', 'd
 
 const GRUPOS_MAIS: { titulo: string; chaves: NavKey[] }[] = [
   { titulo: 'Atendimento', chaves: ['status-do-dia', 'abastecimento'] },
-  { titulo: 'Resultados', chaves: ['metas', 'premiacao', 'despesas'] },
+  { titulo: 'Resultados', chaves: ['metas', 'premiacao', 'despesas', 'pagamentos'] },
   { titulo: 'Equipe', chaves: ['mural', 'holerites', 'holerites-rh', 'sdr', 'admin'] },
 ]
 
@@ -123,6 +124,7 @@ export function Topbar({
     // Consolidado de SDR: só o admin (Junior) vê.
     navItems.push({ key: 'sdr', href: '/sdr', label: 'SDR' })
     navItems.push({ key: 'admin', href: '/admin', label: 'Admin' })
+    navItems.push({ key: 'pagamentos', href: '/pagamentos', label: 'Pagamentos' })
   }
 
   if (gerenciaHolerites) {
