@@ -5,7 +5,7 @@ import { Topbar } from '@/components/Topbar'
 import { ConfirmButton } from '@/components/ConfirmButton'
 import { podeVerTudo } from '@/lib/membros'
 import { mesAtualISO, mesRange, mesLabel } from '@/lib/metas'
-import { formatBRL } from '@/lib/ordens'
+import { formatBRL, dedupOrdensPorPlacaCliente } from '@/lib/ordens'
 import { deleteDespesa } from './actions'
 
 type ProfileSummary = { nome: string; cargo: string; ve_despesas: boolean }
@@ -18,7 +18,15 @@ type DespesaRow = {
   valor: number
   unidades: { nome: string } | null
 }
-type OrdemVenda = { unidade_id: string; valor_total: number; desconto: number }
+type OrdemVenda = {
+  id: string
+  unidade_id: string
+  valor_total: number
+  desconto: number
+  veiculo_placa: string | null
+  cliente_nome: string
+  created_at: string
+}
 
 const categoriaLabel: Record<string, string> = {
   aluguel: 'Aluguel',
@@ -98,7 +106,7 @@ export default async function DespesasPage({
         .overrideTypes<DespesaRow[]>(),
       supabase
         .from('ordens_servico')
-        .select('unidade_id, valor_total, desconto')
+        .select('id, unidade_id, valor_total, desconto, veiculo_placa, cliente_nome, created_at')
         .eq('status', 'aprovada')
         .eq('tipo', 'venda')
         .gte('data_venda', inicio)
@@ -117,7 +125,10 @@ export default async function DespesasPage({
 
   const unidades = (unidadesData ?? []) as Unidade[]
   const despesas = despesasData ?? []
-  const ordens = ordensData ?? []
+  // Mesma placa+cliente aprovada mais de uma vez = duplicata (duplo clique
+  // no form, ou relançada com valor corrigido sem reprovar a antiga) — fica
+  // só com a mais recente, senão conta a mesma receita duas vezes.
+  const ordens = dedupOrdensPorPlacaCliente(ordensData ?? [])
   const posVendaTotal = (posVendaData ?? []).reduce((a, l) => a + Number(l.valor), 0)
 
   const receitaPorUnidade = new Map<string, number>()

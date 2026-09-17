@@ -4,7 +4,7 @@ import { Topbar } from '@/components/Topbar'
 import { ToggleGroup } from '@/components/ToggleGroup'
 import { podeVerTudo } from '@/lib/membros'
 import { mesAtualISO, mesRange, mesLabel } from '@/lib/metas'
-import { formatBRL, formaPagamentoLabel } from '@/lib/ordens'
+import { formatBRL, formaPagamentoLabel, dedupOrdensPorPlacaCliente } from '@/lib/ordens'
 
 type ProfileSummary = { nome: string; cargo: string }
 type Unidade = { id: string; nome: string }
@@ -13,6 +13,9 @@ type OrdemAprovada = {
   unidade_id: string
   financeira: string | null
   valor_financiado: number
+  veiculo_placa: string | null
+  cliente_nome: string
+  created_at: string
 }
 type Pagamento = { ordem_id: string; forma: string; valor: number }
 
@@ -88,14 +91,17 @@ export default async function PagamentosPage({
   // PostgREST resolve join aninhado sob RLS.
   let ordensQuery = supabase
     .from('ordens_servico')
-    .select('id, unidade_id, financeira, valor_financiado')
+    .select('id, unidade_id, financeira, valor_financiado, veiculo_placa, cliente_nome, created_at')
     .eq('status', 'aprovada')
     .gte('data_venda', inicio)
     .lt('data_venda', fim)
   if (unidade_id) ordensQuery = ordensQuery.eq('unidade_id', unidade_id)
 
   const { data: ordensData } = await ordensQuery.overrideTypes<OrdemAprovada[]>()
-  const ordens = ordensData ?? []
+  // Mesma placa+cliente aprovada mais de uma vez = duplicata (duplo clique
+  // no form, ou relançada com valor corrigido sem reprovar a antiga) — fica
+  // só com a mais recente, senão conta o mesmo negócio duas vezes.
+  const ordens = dedupOrdensPorPlacaCliente(ordensData ?? [])
   const ordemIds = ordens.map((o) => o.id)
 
   let pagamentos: Pagamento[] = []
