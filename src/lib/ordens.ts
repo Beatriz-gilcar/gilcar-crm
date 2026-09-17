@@ -40,6 +40,7 @@ export const bancos: string[] = [
   'C6',
   'Omni',
   'Carbank',
+  'Externo',
 ]
 
 export function formatBRL(valor: number): string {
