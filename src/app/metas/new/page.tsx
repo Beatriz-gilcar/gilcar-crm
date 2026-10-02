@@ -2,11 +2,13 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { Topbar } from '@/components/Topbar'
+import { SeletorVendedorLoja } from '@/components/SeletorVendedorLoja'
 import { createVenda } from '../actions'
 import { isGerenciaCargo, podeVerTudo } from '@/lib/membros'
 
 type ProfileSummary = { nome: string; cargo: string; unidade_id: string | null }
-type Membro = { id: string; nome: string; unidades: { nome: string } | null }
+type Membro = { id: string; nome: string; unidade_id: string | null; unidades: { nome: string } | null }
+type Unidade = { id: string; nome: string }
 
 function hojeISO() {
   return new Date().toISOString().slice(0, 10)
@@ -43,18 +45,25 @@ export default async function NewVendaPage({
     redirect('/metas')
   }
 
-  // Vendedores para o Junior escolher. A venda vai direto pra loja do vendedor
-  // (a action deriva a unidade dele), então não pedimos a loja no formulário.
+  // Vendedores para o Junior escolher. A venda vai direto pra loja do
+  // vendedor (a action deriva a unidade dele) — exceto vendedor "volante"
+  // (sem unidade fixa no perfil, ex.: Gilmar/Junior), que pode vender por
+  // qualquer loja: aí sim o formulário pede a loja (ver SeletorVendedorLoja).
   let membros: Membro[] = []
+  let unidades: Unidade[] = []
   if (isGerencia) {
-    const { data: membrosData } = await supabase
-      .from('profiles')
-      .select('id, nome, unidades(nome)')
-      .eq('ativo', true)
-      .neq('cargo', 'visualizador')
-      .order('nome')
-      .overrideTypes<Membro[]>()
+    const [{ data: membrosData }, { data: unidadesData }] = await Promise.all([
+      supabase
+        .from('profiles')
+        .select('id, nome, unidade_id, unidades(nome)')
+        .eq('ativo', true)
+        .neq('cargo', 'visualizador')
+        .order('nome')
+        .overrideTypes<Membro[]>(),
+      supabase.from('unidades').select('id, nome').order('nome'),
+    ])
     membros = membrosData ?? []
+    unidades = unidadesData ?? []
   }
 
   return (
@@ -90,17 +99,11 @@ export default async function NewVendaPage({
                 <input name="data" type="date" defaultValue={hojeISO()} required />
               </div>
               {isGerencia ? (
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label>Vendedor</label>
-                  <select name="consultor_id" defaultValue="">
-                    <option value="">Eu mesmo</option>
-                    {membros.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.nome} — {m.unidades?.nome ?? 'Todas'}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                <SeletorVendedorLoja
+                  membros={membros.map((m) => ({ id: m.id, nome: m.nome, unidade_id: m.unidade_id, unidadeNome: m.unidades?.nome ?? null }))}
+                  unidades={unidades}
+                  minhaUnidadeId={profile?.unidade_id ?? null}
+                />
               ) : (
                 // Consultor lança pra si; a action já usa a unidade dele.
                 <input type="hidden" name="consultor_id" value={user.id} />
