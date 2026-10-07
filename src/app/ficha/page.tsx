@@ -6,6 +6,7 @@ import { SubmitButton } from '@/components/SubmitButton'
 import { AtividadesDia } from '@/components/AtividadesDia'
 import { TelefoneInput } from '@/components/TelefoneInput'
 import { origemPresencialLabel, origemDigitalLabel } from '@/lib/atendimentos'
+import { normalizarTelefone } from '@/lib/whatsapp'
 import { dataHoraBR } from '@/lib/datas'
 import { atividadeCampos, type AtividadeCampo } from '@/lib/atividades'
 import { podeVerTudo, isSomenteLeitura } from '@/lib/membros'
@@ -37,6 +38,30 @@ type Ficha = { status: string }
 
 function hojeISO() {
   return new Date().toISOString().slice(0, 10)
+}
+
+// Linha de detalhe de 1 atendimento, reaproveitada tanto pro caso de contato
+// único (mostra direto) quanto dentro do "Ver os N contatos" de um grupo.
+function LinhaAtendimentoDetalhe({ a, nomeConsultor }: { a: Atendimento; nomeConsultor: string }) {
+  return (
+    <div className="mt-1">
+      <p className="flex flex-wrap items-center gap-2">
+        <span className="font-semibold text-white">{nomeConsultor}</span>
+        <span className="badge badge-enviado">{a.tipo === 'presencial' ? 'Presencial' : 'Digital'}</span>
+        {a.tipo === 'presencial' && (
+          <span className={`badge ${a.fechou_negocio ? 'badge-aprovado' : 'badge-rejeitado'}`}>
+            {a.fechou_negocio ? 'Fechou' : 'Não fechou'}
+          </span>
+        )}
+        {a.tipo === 'digital' && (
+          <span className={`badge ${a.agendou_visita ? 'badge-aprovado' : 'badge-rejeitado'}`}>
+            {a.agendou_visita ? 'Agendou' : 'Não agendou'}
+          </span>
+        )}
+      </p>
+      {a.veiculo_interesse && <p className="mt-1 normal-case text-white">{a.veiculo_interesse}</p>}
+    </div>
+  )
 }
 
 export default async function FichaPage({
@@ -143,6 +168,24 @@ export default async function FichaPage({
     const { data: encontrados } = await q.overrideTypes<Atendimento[]>()
     resultadosBusca = encontrados ?? []
   }
+
+  // Agrupa o resumo por telefone (normalizado) pra não repetir o mesmo
+  // cliente várias vezes no follow-up mensal quando ele foi atendido mais de
+  // uma vez no período. Sem telefone válido não agrupa com ninguém (cada
+  // atendimento fica sozinho) — evita juntar duas pessoas diferentes só
+  // porque nenhuma informou celular. resultadosBusca já vem ordenado por
+  // data desc, então o primeiro item de cada grupo é sempre o mais recente.
+  type GrupoTelefone = { chave: string; telefone: string | null; nomes: Set<string>; itens: Atendimento[] }
+  const gruposMap = new Map<string, GrupoTelefone>()
+  for (const a of resultadosBusca) {
+    const telefone = normalizarTelefone(a.celular)
+    const chave = telefone ?? `sem-telefone-${a.id}`
+    const grupo = gruposMap.get(chave) ?? { chave, telefone, nomes: new Set<string>(), itens: [] }
+    if (a.cliente_nome?.trim()) grupo.nomes.add(a.cliente_nome.trim())
+    grupo.itens.push(a)
+    gruposMap.set(chave, grupo)
+  }
+  const gruposBusca = [...gruposMap.values()]
   const presenciais = atendimentos.filter((a) => a.tipo === 'presencial')
   const digitais = atendimentos.filter((a) => a.tipo === 'digital')
 
@@ -199,37 +242,58 @@ export default async function FichaPage({
                 ) : (
                   <>
                     <p className="mt-4 text-[.72rem] text-[var(--text-muted)]">
-                      {resultadosBusca.length} atendimento{resultadosBusca.length === 1 ? '' : 's'}.
+                      {resultadosBusca.length} atendimento{resultadosBusca.length === 1 ? '' : 's'} em{' '}
+                      {gruposBusca.length} contato{gruposBusca.length === 1 ? '' : 's'} (agrupado por telefone).
                     </p>
                     <ul className="mt-2 flex flex-col gap-2">
-                      {resultadosBusca.map((a) => (
-                        <li key={a.id} className="border-t border-[var(--border)] pt-2 text-[.78rem]">
-                          <p className="flex flex-wrap items-center gap-2">
-                            <span className="text-[var(--text-muted)]">{dataHoraBR(a.data_atendimento)}</span>
-                            <span className="font-semibold text-white">
-                              {nomePorConsultor.get(a.consultor_id ?? '') ?? '—'}
-                            </span>
-                            <span className="badge badge-enviado">
-                              {a.tipo === 'presencial' ? 'Presencial' : 'Digital'}
-                            </span>
-                            {a.tipo === 'presencial' && (
-                              <span className={`badge ${a.fechou_negocio ? 'badge-aprovado' : 'badge-rejeitado'}`}>
-                                {a.fechou_negocio ? 'Fechou' : 'Não fechou'}
-                              </span>
+                      {gruposBusca.map((g) => {
+                        const nomesDiferentes = g.nomes.size > 1
+                        const nomeExibido = g.itens[0].cliente_nome ?? '—'
+                        return (
+                          <li key={g.chave} className="border-t border-[var(--border)] pt-2 text-[.78rem]">
+                            <p className="flex flex-wrap items-center gap-2">
+                              <span className="text-[var(--text-muted)]">{dataHoraBR(g.itens[0].data_atendimento)}</span>
+                              <span className="font-semibold text-white">{nomeExibido}</span>
+                              {g.telefone && (
+                                <a
+                                  href={`https://wa.me/${g.telefone}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-[var(--text-muted)] underline decoration-[var(--text-muted)] hover:text-[var(--coral)]"
+                                >
+                                  {g.itens[0].celular}
+                                </a>
+                              )}
+                              {g.itens.length > 1 && (
+                                <span className="badge badge-neutro">{g.itens.length}x no período</span>
+                              )}
+                              {nomesDiferentes && (
+                                <span className="badge badge-pendente" title={[...g.nomes].join(' / ')}>
+                                  ⚠️ nomes diferentes
+                                </span>
+                              )}
+                            </p>
+
+                            {g.itens.length === 1 ? (
+                              <LinhaAtendimentoDetalhe a={g.itens[0]} nomeConsultor={nomePorConsultor.get(g.itens[0].consultor_id ?? '') ?? '—'} />
+                            ) : (
+                              <details className="mt-1">
+                                <summary className="cursor-pointer text-[.72rem] font-bold text-[var(--coral)]">
+                                  Ver os {g.itens.length} contatos
+                                </summary>
+                                <div className="mt-2 flex flex-col gap-2 border-l border-[var(--border)] pl-3">
+                                  {g.itens.map((a) => (
+                                    <div key={a.id}>
+                                      <p className="text-[.68rem] text-[var(--text-muted)]">{dataHoraBR(a.data_atendimento)}</p>
+                                      <LinhaAtendimentoDetalhe a={a} nomeConsultor={nomePorConsultor.get(a.consultor_id ?? '') ?? '—'} />
+                                    </div>
+                                  ))}
+                                </div>
+                              </details>
                             )}
-                            {a.tipo === 'digital' && (
-                              <span className={`badge ${a.agendou_visita ? 'badge-aprovado' : 'badge-rejeitado'}`}>
-                                {a.agendou_visita ? 'Agendou' : 'Não agendou'}
-                              </span>
-                            )}
-                          </p>
-                          <p className="mt-1 normal-case text-white">
-                            {a.cliente_nome ?? '—'}
-                            {a.celular && <> · {a.celular}</>}
-                            {a.veiculo_interesse && <> · {a.veiculo_interesse}</>}
-                          </p>
-                        </li>
-                      ))}
+                          </li>
+                        )
+                      })}
                     </ul>
                   </>
                 ))}
