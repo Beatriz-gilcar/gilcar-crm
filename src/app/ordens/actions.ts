@@ -316,6 +316,7 @@ export async function updateOrdem(formData: FormData) {
 
 type OrdemAprovadaResumo = {
   tipo: string
+  veiculo_id: string | null
   cliente_nome: string
   veiculo_marca: string
   veiculo_modelo: string
@@ -346,7 +347,7 @@ export async function aprovarOrdem(formData: FormData) {
     .update({ status: 'aprovada', aprovado_por: user?.id, aprovado_em: new Date().toISOString() })
     .eq('id', id)
     .select(
-      `tipo, cliente_nome, veiculo_marca, veiculo_modelo, veiculo_placa, veiculo_km, unidade_id, consultor_id,
+      `tipo, veiculo_id, cliente_nome, veiculo_marca, veiculo_modelo, veiculo_placa, veiculo_km, unidade_id, consultor_id,
        manutencao, data_entrega, revenda, valor_total, desconto, over, data_venda,
        vendedor:profiles!ordens_servico_consultor_id_fkey(nome, cargo)`
     )
@@ -354,6 +355,20 @@ export async function aprovarOrdem(formData: FormData) {
 
   if (error) {
     redirect(`/ordens/${id}?error=${encodeURIComponent('Não foi possível aprovar a ordem')}`)
+  }
+
+  // Venda de um veículo que veio do Estoque (não avulso): marca "vendido"
+  // sozinho, sem precisar que alguém lembre de ir lá e mudar na mão — era
+  // assim que o estoque ficava desatualizado (carro vendido continuava
+  // "disponível", ou só sumia quando alguém excluía manualmente).
+  if (ordem?.tipo === 'venda' && ordem.veiculo_id) {
+    const { error: veiculoError } = await supabase
+      .from('veiculos')
+      .update({ status: 'vendido', updated_at: new Date().toISOString() })
+      .eq('id', ordem.veiculo_id)
+    if (veiculoError) {
+      console.error('Falha ao marcar veículo como vendido', veiculoError)
+    }
   }
 
   // Comissão automática (venda ou compra) — mesma base do Gestão Gilcar
