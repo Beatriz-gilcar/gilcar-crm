@@ -96,9 +96,15 @@ export default async function EstoqueAutocertoPage() {
     .filter((x) => x.v.status === 'disponivel' && x.placa && !feedPorPlaca.has(x.placa))
     .map((x) => x.v)
 
-  // 3) Anunciado lá mas o CRM nem conhece essa placa — pode ser falta de
-  // cadastro aqui, vale olhar.
-  const anunciadoForaDoCrm = feedResult.feed.filter((v) => !crmPorPlaca.has(v.placa))
+  // 3) Anunciado lá mas o CRM nem conhece essa placa — mistura dois casos que
+  // não dá pra separar só pelos dados (o feed não marca "consignado" em
+  // lugar nenhum): consignado que nunca passou pelo CRM (ativo de verdade) e
+  // carro vendido/saído que ficou esquecido lá. Ordena pelos mais parados
+  // primeiro — anúncio sem atualizar há meses é bem mais suspeito de ser o
+  // segundo caso do que um atualizado essa semana.
+  const anunciadoForaDoCrm = feedResult.feed
+    .filter((v) => !crmPorPlaca.has(v.placa))
+    .sort((a, b) => (a.dataAtualizacao ?? '').localeCompare(b.dataAtualizacao ?? ''))
 
   return (
     <>
@@ -183,16 +189,28 @@ export default async function EstoqueAutocertoPage() {
               {anunciadoForaDoCrm.length === 0 ? (
                 <div className="empty-state">Nenhum.</div>
               ) : (
-                anunciadoForaDoCrm.map((v) => (
-                  <div key={v.idveiculo} className="flex items-center justify-between gap-3 border-t border-[var(--border)] px-4 py-2.5 first:border-t-0">
-                    <p className="normal-case text-white">
-                      {v.marca} {v.modelo} · {v.placa}
-                      {v.precoDecimal != null && (
-                        <span className="ml-2 text-[.72rem] text-[var(--text-muted)]">{formatBRL(v.precoDecimal)}</span>
-                      )}
-                    </p>
-                  </div>
-                ))
+                anunciadoForaDoCrm.map((v) => {
+                  const diasParado = v.dataAtualizacao
+                    ? Math.floor((Date.now() - new Date(v.dataAtualizacao.replace(' ', 'T')).getTime()) / 86400000)
+                    : null
+                  const suspeito = diasParado == null || diasParado > 90
+                  return (
+                    <div key={v.idveiculo} className="flex items-center justify-between gap-3 border-t border-[var(--border)] px-4 py-2.5 first:border-t-0">
+                      <p className="normal-case text-white">
+                        {v.marca} {v.modelo} · {v.placa}
+                        {v.precoDecimal != null && (
+                          <span className="ml-2 text-[.72rem] text-[var(--text-muted)]">{formatBRL(v.precoDecimal)}</span>
+                        )}
+                      </p>
+                      <span
+                        className={`badge ${suspeito ? 'badge-rejeitado' : 'badge-neutro'}`}
+                        title={v.dataAtualizacao ?? 'sem data de atualização'}
+                      >
+                        {diasParado == null ? 'sem data' : diasParado === 0 ? 'hoje' : `${diasParado}d parado`}
+                      </span>
+                    </div>
+                  )
+                })
               )}
             </div>
           </div>
