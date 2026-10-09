@@ -5,7 +5,7 @@ import { ConfirmButton } from '@/components/ConfirmButton'
 import { ToggleGroup } from '@/components/ToggleGroup'
 import { statusLabel, statusBadgeClass, cambioLabel, ehMoto } from '@/lib/veiculos'
 import { deleteVeiculo } from './actions'
-import { podeVerTudo } from '@/lib/membros'
+import { podeVerTudo, isGerenciaCargo } from '@/lib/membros'
 
 // Consultor edita só a própria unidade. Gerência (gerente/supervisor) e
 // admin editam qualquer unidade — quem cai no "Ver" aqui é só consultor de
@@ -208,15 +208,22 @@ export default async function EstoquePage({
             </div>
           </div>
 
-          <div className="mt-6 flex items-center justify-between">
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-2">
             <div className="sec-title" style={{ borderBottom: 'none', paddingBottom: 0 }}>
               Estoque
             </div>
-            {(isAdmin || profile?.cargo === 'consultor' || profile?.cargo === 'gerente' || profile?.cargo === 'supervisor') && (
-              <Link href="/estoque/new" className="btn btn-red btn-sm">
-                + Novo Veículo
-              </Link>
-            )}
+            <div className="flex items-center gap-2">
+              {isGerenciaCargo(profile?.cargo) && (
+                <Link href="/estoque/autocerto" className="btn btn-outline btn-sm">
+                  Conferir Autocerto
+                </Link>
+              )}
+              {(isAdmin || profile?.cargo === 'consultor' || profile?.cargo === 'gerente' || profile?.cargo === 'supervisor') && (
+                <Link href="/estoque/new" className="btn btn-red btn-sm">
+                  + Novo Veículo
+                </Link>
+              )}
+            </div>
           </div>
 
           <div className="chip-row mt-3">
