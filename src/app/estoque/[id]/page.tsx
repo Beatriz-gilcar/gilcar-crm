@@ -4,9 +4,71 @@ import { createClient } from '@/lib/supabase/server'
 import { Topbar } from '@/components/Topbar'
 import { ToggleGroup } from '@/components/ToggleGroup'
 import { ConfirmButton } from '@/components/ConfirmButton'
-import { statusLabel } from '@/lib/veiculos'
-import { updateVeiculo, deleteVeiculo } from '../actions'
+import { statusLabel, ITENS_CONFERENCIA_PADRAO } from '@/lib/veiculos'
+import { updateVeiculo, deleteVeiculo, aceitarTransferenciaVeiculo } from '../actions'
 import { podeVerTudo, isGerenciaCargo } from '@/lib/membros'
+
+type TransferenciaPendente = { id: string; unidade_origem_id: string; unidades_origem: { nome: string } | null }
+
+function ConferenciaRecebimento({
+  veiculo,
+  transferencia,
+  podeAceitar,
+  error,
+}: {
+  veiculo: VeiculoDetail
+  transferencia: TransferenciaPendente
+  podeAceitar: boolean
+  error?: string
+}) {
+  return (
+    <div className="mt-2">
+      <div className="sec-header">
+        <div className="sec-title">
+          {veiculo.marca} {veiculo.modelo}
+        </div>
+        <span className="badge badge-pendente">Aguardando conferência</span>
+      </div>
+      <div className="sec-body sec-pad flex flex-col gap-3 text-[.82rem] normal-case text-white">
+        {error && (
+          <p className="rounded-md bg-[#1a0808] px-3 py-2 text-[.78rem] normal-case text-[var(--red)]">{error}</p>
+        )}
+        <p>
+          Transferido de <strong>{transferencia.unidades_origem?.nome ?? '—'}</strong>. Placa: {veiculo.placa ?? '—'}.
+        </p>
+
+        {podeAceitar ? (
+          <form action={aceitarTransferenciaVeiculo} className="flex flex-col gap-3">
+            <input type="hidden" name="transferencia_id" value={transferencia.id} />
+            <input type="hidden" name="veiculo_id" value={veiculo.id} />
+            <p className="text-[.72rem] text-[var(--text-muted)]">
+              Confira o veículo fisicamente e marque os itens antes de aceitar.
+            </p>
+            <div className="flex flex-col gap-2">
+              {ITENS_CONFERENCIA_PADRAO.map((item) => (
+                <label key={item} className="flex items-center gap-2">
+                  <input type="checkbox" name="item_conferido" value={item} />
+                  {item}
+                </label>
+              ))}
+            </div>
+            <div className="form-group" style={{ marginBottom: 0 }}>
+              <label>Observação (opcional — ex.: avaria encontrada)</label>
+              <textarea name="observacao" rows={2} />
+            </div>
+            <button type="submit" className="btn btn-red self-start">
+              Aceitar recebimento
+            </button>
+          </form>
+        ) : (
+          <p className="text-[.72rem] text-[var(--text-muted)]">
+            Só a gerência da unidade que recebeu pode conferir e aceitar este veículo.
+          </p>
+        )}
+      </div>
+    </div>
+  )
+}
 
 type VeiculoDetail = {
   id: string
@@ -72,6 +134,21 @@ export default async function VeiculoDetailPage({
     notFound()
   }
 
+  let transferenciaPendente: TransferenciaPendente | null = null
+  if (veiculo.status === 'aguardando_conferencia') {
+    const { data } = await supabase
+      .from('veiculos_transferencias')
+      .select('id, unidade_origem_id, unidades_origem:unidades!unidade_origem_id(nome)')
+      .eq('veiculo_id', veiculo.id)
+      .eq('status', 'pendente')
+      .maybeSingle<TransferenciaPendente>()
+    transferenciaPendente = data
+  }
+  // Só a gerência da unidade que recebeu (ou admin) aceita — veiculo.unidade_id
+  // já é a unidade destino nesse ponto (a transferência já moveu o registro,
+  // só o status é que fica em espera).
+  const podeAceitarConferencia = isAdmin || (isGerenciaSemAdmin && veiculo.unidade_id === profile?.unidade_id)
+
   // Edição completa: admin ou gerência (qualquer veículo, qualquer unidade),
   // ou consultor na própria unidade — espelha a policy do banco.
   const podeEditarCompleto =
@@ -103,7 +180,14 @@ export default async function VeiculoDetailPage({
             ← Estoque
           </Link>
 
-          {!podeEditarCompleto ? (
+          {veiculo.status === 'aguardando_conferencia' && transferenciaPendente ? (
+            <ConferenciaRecebimento
+              veiculo={veiculo}
+              transferencia={transferenciaPendente}
+              podeAceitar={podeAceitarConferencia}
+              error={error}
+            />
+          ) : !podeEditarCompleto ? (
             <div className="mt-2">
               <div className="sec-header">
                 <div className="sec-title">
@@ -275,7 +359,7 @@ export default async function VeiculoDetailPage({
             </form>
           )}
 
-          {podeEditarCompleto && (
+          {podeEditarCompleto && veiculo.status !== 'aguardando_conferencia' && (
             <form action={deleteVeiculo} className="mt-3">
               <input type="hidden" name="id" value={veiculo.id} />
               <ConfirmButton

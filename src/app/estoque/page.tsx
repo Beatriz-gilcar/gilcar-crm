@@ -74,7 +74,11 @@ function VeiculoRow({ veiculo, canEdit }: { veiculo: Veiculo; canEdit: boolean }
       </td>
       <td className="px-2 py-2.5 text-right">
         <div className="flex items-center justify-end gap-3">
-          {canEdit ? (
+          {veiculo.status === 'aguardando_conferencia' ? (
+            <Link href={`/estoque/${veiculo.id}`} className="font-bold text-[var(--coral)] hover:underline">
+              Conferir
+            </Link>
+          ) : canEdit ? (
             <>
               <Link href={`/estoque/${veiculo.id}`} className="font-bold text-[var(--text-muted)] hover:text-white">
                 Editar

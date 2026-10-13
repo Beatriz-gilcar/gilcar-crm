@@ -35,13 +35,29 @@ export const statusLabel: Record<string, string> = {
   disponivel: 'Disponível',
   reservado: 'Reservado',
   vendido: 'Vendido',
+  aguardando_conferencia: 'Aguardando conferência',
 }
 
 export const statusBadgeClass: Record<string, string> = {
   disponivel: 'badge-aprovado',
   reservado: 'badge-pendente',
   vendido: 'badge-enviado',
+  aguardando_conferencia: 'badge-pendente',
 }
+
+// Checklist de recebimento na transferência entre unidades — fixo em
+// código de propósito (sem customização pedida, evita tabela de template
+// e tela de admin à toa). Ver veiculos_transferencias.itens_checklist.
+export const ITENS_CONFERENCIA_PADRAO = [
+  'Pneus em bom estado',
+  'Estepe presente',
+  'Chave reserva',
+  'Manual do veículo',
+  'Documento (CRLV)',
+  'Quilometragem bate com o sistema',
+  'Sem avarias além das já informadas',
+  'Nível de combustível',
+]
 
 export const cambioLabel: Record<string, string> = {
   manual: 'Manual',
