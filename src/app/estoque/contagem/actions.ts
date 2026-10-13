@@ -52,7 +52,9 @@ export async function iniciarContagem(formData: FormData) {
     .single<{ id: string }>()
 
   if (error || !contagem) {
-    redirect(`/estoque/contagem?error=${encodeURIComponent('Não foi possível iniciar a contagem')}`)
+    // DEBUG temporário: mostra a mensagem real do Postgres pra diagnosticar
+    // o "Não foi possível iniciar a contagem" sem precisar abrir o log do Vercel.
+    redirect(`/estoque/contagem?error=${encodeURIComponent('Não foi possível iniciar a contagem: ' + (error?.message ?? 'sem contagem'))}`)
   }
 
   // Snapshot: um item por veículo disponível/reservado da unidade, no
