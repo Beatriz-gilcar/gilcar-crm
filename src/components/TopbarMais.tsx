@@ -16,6 +16,7 @@ const ICONE: Record<string, string> = {
   'holerites-rh': '🧾',
   despesas: '💸',
   pagamentos: '💳',
+  'estoque-contagem': '📋',
   sdr: '📞',
   admin: '⚙️',
 }

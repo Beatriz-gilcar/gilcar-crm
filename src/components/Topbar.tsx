@@ -23,6 +23,7 @@ type NavKey =
   | 'boletos'
   | 'despesas'
   | 'pagamentos'
+  | 'estoque-contagem'
 
 // Abas usadas várias vezes por dia: continuam soltas no menu. O resto entra
 // no painel "Mais" (ver GRUPOS_MAIS) pra não estourar a largura — o nav
@@ -31,7 +32,7 @@ const FIXOS: NavKey[] = ['ficha', 'rotina', 'ordens', 'estoque', 'pos-venda', 'd
 
 const GRUPOS_MAIS: { titulo: string; chaves: NavKey[] }[] = [
   { titulo: 'Atendimento', chaves: ['status-do-dia', 'abastecimento'] },
-  { titulo: 'Resultados', chaves: ['metas', 'premiacao', 'despesas', 'pagamentos'] },
+  { titulo: 'Resultados', chaves: ['metas', 'premiacao', 'despesas', 'pagamentos', 'estoque-contagem'] },
   { titulo: 'Equipe', chaves: ['mural', 'holerites', 'holerites-rh', 'sdr', 'admin'] },
 ]
 
@@ -45,6 +46,7 @@ export function Topbar({
   isAdmin = false,
   gerenciaHolerites = false,
   veDespesas = false,
+  veContagemEstoque = false,
   active,
 }: {
   nome: string
@@ -57,6 +59,9 @@ export function Topbar({
   // Despesas por unidade: restrito ao Junior (flag por pessoa), mesmo
   // padrão de gerenciaHolerites — não é "todo admin".
   veDespesas?: boolean
+  // Conferência física de estoque: flag por pessoa (profiles.acesso_financeiro),
+  // hoje só o Emerson Batista — mesmo padrão de gerenciaHolerites/veDespesas.
+  veContagemEstoque?: boolean
   active: NavKey | ''
 }) {
   // Cargo pos_venda (Luciana) tem um nav enxuto: só o módulo dela e o Estoque
@@ -133,6 +138,10 @@ export function Topbar({
 
   if (veDespesas) {
     navItems.push({ key: 'despesas', href: '/despesas', label: 'Despesas' })
+  }
+
+  if (veContagemEstoque) {
+    navItems.push({ key: 'estoque-contagem', href: '/estoque/contagem', label: 'Contagem de Estoque' })
   }
 
   // Nav enxuto (SDR, pós-venda, social media, financeiro) já cabe numa linha
