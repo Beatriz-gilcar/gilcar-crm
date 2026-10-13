@@ -33,7 +33,7 @@ const FIXOS: NavKey[] = ['ficha', 'rotina', 'ordens', 'estoque', 'pos-venda', 'd
 const GRUPOS_MAIS: { titulo: string; chaves: NavKey[] }[] = [
   { titulo: 'Atendimento', chaves: ['status-do-dia', 'abastecimento'] },
   { titulo: 'Resultados', chaves: ['metas', 'premiacao', 'despesas', 'pagamentos', 'estoque-contagem'] },
-  { titulo: 'Equipe', chaves: ['mural', 'holerites', 'holerites-rh', 'sdr', 'admin'] },
+  { titulo: 'Equipe', chaves: ['mural', 'holerites-rh', 'sdr', 'admin'] },
 ]
 
 export function Topbar({
@@ -115,16 +115,14 @@ export function Topbar({
         { key: 'premiacao', href: '/premiacao', label: 'Premiação' },
         { key: 'estoque', href: '/estoque', label: 'Estoque' },
         { key: 'pos-venda', href: '/pos-venda', label: 'Pós-venda' },
-        { key: 'holerites', href: '/holerites', label: 'Holerites' },
         { key: 'mural', href: '/mural', label: 'Mural' },
         { key: 'dashboard', href: '/dashboard', label: 'Dashboard' },
       ]
 
-  // Mural e Holerites são de todo mundo, sem exceção de cargo — nos naves
-  // enxutos (SDR/pós-venda/social media/financeiro) entram no fim, já que o
-  // branch acima cobre a ordem específica pedida pro nav completo.
+  // Mural é de todo mundo, sem exceção de cargo — nos naves enxutos
+  // (SDR/pós-venda/social media/financeiro) entra no fim, já que o branch
+  // acima cobre a ordem específica pedida pro nav completo.
   if (isSdrCargo || isPosVenda || isSocialMedia || isFinanceiroCargo || soConferenciaEstoque) {
-    navItems.push({ key: 'holerites', href: '/holerites', label: 'Holerites' })
     navItems.push({ key: 'mural', href: '/mural', label: 'Mural' })
   }
 
