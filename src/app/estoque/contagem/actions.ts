@@ -51,6 +51,22 @@ export async function iniciarContagem(formData: FormData) {
     .select('id')
     .single<{ id: string }>()
 
+  if (error?.code === '23505') {
+    // UNIQUE (unidade_id, data): já existe uma contagem de hoje pra essa
+    // unidade, só que finalizada (a aberta já foi tratada acima) — abre ela
+    // em vez de travar numa mensagem de erro sem saída.
+    const { data: existente } = await supabase
+      .from('estoque_contagens')
+      .select('id')
+      .eq('unidade_id', unidade_id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle<{ id: string }>()
+    if (existente) {
+      redirect(`/estoque/contagem/${existente.id}`)
+    }
+  }
+
   if (error || !contagem) {
     redirect(`/estoque/contagem?error=${encodeURIComponent('Não foi possível iniciar a contagem')}`)
   }

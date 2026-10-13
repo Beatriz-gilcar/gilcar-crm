@@ -10,6 +10,7 @@ type Unidade = { id: string; nome: string }
 type Contagem = {
   id: string
   unidade_id: string
+  data: string
   created_at: string
   concluida: boolean
   unidades: { nome: string } | null
@@ -52,7 +53,7 @@ export default async function ContagemEstoquePage({
     supabase.from('unidades').select('id, nome').order('nome'),
     supabase
       .from('estoque_contagens')
-      .select('id, unidade_id, created_at, concluida, unidades(nome)')
+      .select('id, unidade_id, data, created_at, concluida, unidades(nome)')
       .order('created_at', { ascending: false })
       .limit(50)
       .overrideTypes<Contagem[]>(),
@@ -62,6 +63,13 @@ export default async function ContagemEstoquePage({
   const contagens = contagensData ?? []
   const abertaPorUnidade = new Map(contagens.filter((c) => !c.concluida).map((c) => [c.unidade_id, c]))
   const fechadas = contagens.filter((c) => c.concluida)
+  // UNIQUE (unidade_id, data) no banco: só dá pra ter uma contagem por
+  // unidade por dia. Se a de hoje já foi finalizada, "Iniciar contagem" ia
+  // esbarrar nessa trava — mostra "Ver contagem de hoje" em vez do botão.
+  const hoje = new Date().toISOString().slice(0, 10)
+  const fechadaHojePorUnidade = new Map(
+    contagens.filter((c) => c.concluida && c.data === hoje).map((c) => [c.unidade_id, c])
+  )
 
   return (
     <>
@@ -94,6 +102,7 @@ export default async function ContagemEstoquePage({
           <div className="mt-4 sec-body" style={{ padding: 0 }}>
             {unidades.map((u) => {
               const emAndamento = abertaPorUnidade.get(u.id)
+              const fechadaHoje = fechadaHojePorUnidade.get(u.id)
               return (
                 <div key={u.id} className="flex items-center justify-between gap-3 border-t border-[var(--border)] px-4 py-3 first:border-t-0">
                   <div>
@@ -103,10 +112,19 @@ export default async function ContagemEstoquePage({
                         Contagem aberta em {dataHoraBR(emAndamento.created_at)}
                       </p>
                     )}
+                    {!emAndamento && fechadaHoje && (
+                      <p className="text-[.72rem] text-[var(--text-muted)]">
+                        Já finalizada hoje — só dá pra ter uma por dia.
+                      </p>
+                    )}
                   </div>
                   {emAndamento ? (
                     <Link href={`/estoque/contagem/${emAndamento.id}`} className="btn btn-outline btn-sm">
                       Continuar
+                    </Link>
+                  ) : fechadaHoje ? (
+                    <Link href={`/estoque/contagem/${fechadaHoje.id}`} className="btn btn-outline btn-sm">
+                      Ver contagem de hoje
                     </Link>
                   ) : (
                     <form action={iniciarContagem}>
