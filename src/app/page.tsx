@@ -7,6 +7,7 @@ type ProfileSummary = {
   nome: string
   cargo: string
   unidades: { nome: string } | null
+  acesso_financeiro: boolean
 }
 
 export default async function Home() {
@@ -22,7 +23,7 @@ export default async function Home() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('nome, cargo, unidades(nome)')
+    .select('nome, cargo, unidades(nome), acesso_financeiro')
     .eq('id', user.id)
     .single<ProfileSummary>()
 
@@ -40,6 +41,7 @@ export default async function Home() {
         cargo={profile?.cargo ?? ''}
         verTudo={verTudo}
         isAdmin={isAdmin}
+        veContagemEstoque={profile?.acesso_financeiro ?? false}
         active=""
       />
       <div className="flex flex-1 flex-col items-center justify-center gap-2 px-4">

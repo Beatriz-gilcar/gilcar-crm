@@ -26,7 +26,7 @@ type Post = {
   profiles: Autor
 }
 
-type ProfileSummary = { nome: string; cargo: string }
+type ProfileSummary = { nome: string; cargo: string; acesso_financeiro: boolean }
 
 const tipoLabel: Record<string, string> = { duvida: 'Dúvida', sugestao: 'Sugestão' }
 const tipoBadgeClass: Record<string, string> = { duvida: 'badge-pendente', sugestao: 'badge-enviado' }
@@ -49,7 +49,7 @@ export default async function MuralPage({
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('nome, cargo')
+    .select('nome, cargo, acesso_financeiro')
     .eq('id', user.id)
     .single<ProfileSummary>()
 
@@ -84,6 +84,7 @@ export default async function MuralPage({
         cargo={profile?.cargo ?? ''}
         verTudo={verTudo}
         isAdmin={isAdmin}
+        veContagemEstoque={profile?.acesso_financeiro ?? false}
         active="mural"
       />
       <div className="flex flex-1 flex-col gap-6 px-4 py-8 sm:px-10">

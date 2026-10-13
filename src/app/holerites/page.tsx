@@ -5,7 +5,7 @@ import { podeVerTudo } from '@/lib/membros'
 import { mesLabel } from '@/lib/metas'
 import { assinarHolerite } from './actions'
 
-type ProfileSummary = { nome: string; cargo: string; gerencia_holerites: boolean }
+type ProfileSummary = { nome: string; cargo: string; gerencia_holerites: boolean; acesso_financeiro: boolean }
 
 type MeuHolerite = {
   id: string
@@ -38,7 +38,7 @@ export default async function HoleritesPage({
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('nome, cargo, gerencia_holerites')
+    .select('nome, cargo, gerencia_holerites, acesso_financeiro')
     .eq('id', user.id)
     .single<ProfileSummary>()
 
@@ -62,6 +62,7 @@ export default async function HoleritesPage({
         verTudo={verTudo}
         isAdmin={isAdmin}
         gerenciaHolerites={gerenciaHolerites}
+        veContagemEstoque={profile?.acesso_financeiro ?? false}
         active="holerites"
       />
       <div className="flex flex-1 flex-col gap-4 px-4 py-8 sm:px-10">

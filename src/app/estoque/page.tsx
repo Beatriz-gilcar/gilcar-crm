@@ -32,7 +32,7 @@ type Veiculo = {
   unidades: { nome: string } | null
 }
 
-type ProfileSummary = { nome: string; cargo: string; unidade_id: string | null }
+type ProfileSummary = { nome: string; cargo: string; unidade_id: string | null; acesso_financeiro: boolean }
 type Unidade = { id: string; nome: string }
 
 function GrupoHeader({ titulo, total }: { titulo: string; total: number }) {
@@ -141,7 +141,7 @@ export default async function EstoquePage({
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('nome, cargo, unidade_id')
+    .select('nome, cargo, unidade_id, acesso_financeiro')
     .eq('id', user.id)
     .single<ProfileSummary>()
   const verTudo = podeVerTudo(profile?.cargo)
@@ -189,6 +189,7 @@ export default async function EstoquePage({
         cargo={profile?.cargo ?? ''}
         verTudo={verTudo}
         isAdmin={isAdmin}
+        veContagemEstoque={profile?.acesso_financeiro ?? false}
         active="estoque"
       />
       <div className="flex flex-1 flex-col gap-6 px-4 py-8 sm:px-6">
