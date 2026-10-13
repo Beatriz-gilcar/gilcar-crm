@@ -10,8 +10,8 @@ type ProfileSummary = { nome: string; cargo: string; acesso_financeiro: boolean 
 type ContagemDetail = {
   id: string
   unidade_id: string
-  aberta_em: string
-  fechada_em: string | null
+  created_at: string
+  concluida: boolean
   unidades: { nome: string } | null
 }
 type ItemContagem = {
@@ -60,7 +60,7 @@ export default async function ContagemDetalhePage({
 
   const { data: contagem } = await supabase
     .from('estoque_contagens')
-    .select('id, unidade_id, aberta_em, fechada_em, unidades(nome)')
+    .select('id, unidade_id, created_at, concluida, unidades(nome)')
     .eq('id', id)
     .single<ContagemDetail>()
 
@@ -85,7 +85,7 @@ export default async function ContagemDetalhePage({
 
   const encontrados = itens.filter((i) => i.conferido).length
   const naoEncontrados = itens.length - encontrados
-  const aberta = !contagem.fechada_em
+  const aberta = !contagem.concluida
 
   return (
     <>
@@ -109,8 +109,8 @@ export default async function ContagemDetalhePage({
                 {contagem.unidades?.nome ?? '—'}
               </div>
               <p className="mt-1 text-[.72rem] normal-case text-[var(--text-muted)]">
-                Aberta em {dataHoraBR(contagem.aberta_em)}
-                {contagem.fechada_em && ` · Fechada em ${dataHoraBR(contagem.fechada_em)}`}
+                Aberta em {dataHoraBR(contagem.created_at)}
+                {contagem.concluida && ' · Finalizada'}
               </p>
             </div>
             {aberta && (

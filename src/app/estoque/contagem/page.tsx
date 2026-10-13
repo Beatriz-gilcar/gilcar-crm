@@ -10,8 +10,8 @@ type Unidade = { id: string; nome: string }
 type Contagem = {
   id: string
   unidade_id: string
-  aberta_em: string
-  fechada_em: string | null
+  created_at: string
+  concluida: boolean
   unidades: { nome: string } | null
 }
 
@@ -52,16 +52,16 @@ export default async function ContagemEstoquePage({
     supabase.from('unidades').select('id, nome').order('nome'),
     supabase
       .from('estoque_contagens')
-      .select('id, unidade_id, aberta_em, fechada_em, unidades(nome)')
-      .order('aberta_em', { ascending: false })
+      .select('id, unidade_id, created_at, concluida, unidades(nome)')
+      .order('created_at', { ascending: false })
       .limit(50)
       .overrideTypes<Contagem[]>(),
   ])
 
   const unidades = (unidadesData ?? []) as Unidade[]
   const contagens = contagensData ?? []
-  const abertaPorUnidade = new Map(contagens.filter((c) => !c.fechada_em).map((c) => [c.unidade_id, c]))
-  const fechadas = contagens.filter((c) => c.fechada_em)
+  const abertaPorUnidade = new Map(contagens.filter((c) => !c.concluida).map((c) => [c.unidade_id, c]))
+  const fechadas = contagens.filter((c) => c.concluida)
 
   return (
     <>
@@ -100,7 +100,7 @@ export default async function ContagemEstoquePage({
                     <p className="normal-case text-white">{u.nome}</p>
                     {emAndamento && (
                       <p className="text-[.72rem] text-[var(--text-muted)]">
-                        Contagem aberta em {dataHoraBR(emAndamento.aberta_em)}
+                        Contagem aberta em {dataHoraBR(emAndamento.created_at)}
                       </p>
                     )}
                   </div>
@@ -136,9 +136,7 @@ export default async function ContagemEstoquePage({
                     className="flex items-center justify-between gap-3 border-t border-[var(--border)] px-4 py-2.5 first:border-t-0 hover:bg-white/[.02]"
                   >
                     <p className="normal-case text-white">{c.unidades?.nome ?? '—'}</p>
-                    <p className="text-[.72rem] text-[var(--text-muted)]">
-                      {dataHoraBR(c.aberta_em)} → {c.fechada_em ? dataHoraBR(c.fechada_em) : '—'}
-                    </p>
+                    <p className="text-[.72rem] text-[var(--text-muted)]">Aberta em {dataHoraBR(c.created_at)}</p>
                   </Link>
                 ))
               )}

@@ -38,7 +38,7 @@ export async function iniciarContagem(formData: FormData) {
     .from('estoque_contagens')
     .select('id')
     .eq('unidade_id', unidade_id)
-    .is('fechada_em', null)
+    .eq('concluida', false)
     .maybeSingle<{ id: string }>()
 
   if (aberta) {
@@ -47,14 +47,12 @@ export async function iniciarContagem(formData: FormData) {
 
   const { data: contagem, error } = await supabase
     .from('estoque_contagens')
-    .insert({ unidade_id, aberta_por: user.id })
+    .insert({ unidade_id, criado_por: user.id, concluida: false })
     .select('id')
     .single<{ id: string }>()
 
   if (error || !contagem) {
-    // DEBUG temporário: mostra a mensagem real do Postgres pra diagnosticar
-    // o "Não foi possível iniciar a contagem" sem precisar abrir o log do Vercel.
-    redirect(`/estoque/contagem?error=${encodeURIComponent('Não foi possível iniciar a contagem: ' + (error?.message ?? 'sem contagem'))}`)
+    redirect(`/estoque/contagem?error=${encodeURIComponent('Não foi possível iniciar a contagem')}`)
   }
 
   // Snapshot: um item por veículo disponível/reservado da unidade, no
@@ -113,13 +111,10 @@ export async function marcarItemContagem(formData: FormData) {
 
 export async function finalizarContagem(formData: FormData) {
   const supabase = await createClient()
-  const user = await soFinanceiro(supabase)
+  await soFinanceiro(supabase)
   const contagem_id = formData.get('contagem_id') as string
 
-  const { error } = await supabase
-    .from('estoque_contagens')
-    .update({ fechada_por: user.id, fechada_em: new Date().toISOString() })
-    .eq('id', contagem_id)
+  const { error } = await supabase.from('estoque_contagens').update({ concluida: true }).eq('id', contagem_id)
 
   if (error) {
     redirect(`/estoque/contagem/${contagem_id}?error=${encodeURIComponent('Não foi possível finalizar')}`)
