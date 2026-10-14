@@ -32,9 +32,10 @@ export default async function OrdensPage({
     vendedor_id?: string
     status?: string
     forma_pagamento?: string
+    financiamento?: string
   }>
 }) {
-  const { busca, data_de, data_ate, vendedor_id, status, forma_pagamento } = await searchParams
+  const { busca, data_de, data_ate, vendedor_id, status, forma_pagamento, financiamento } = await searchParams
   const supabase = await createClient()
 
   const {
@@ -96,6 +97,8 @@ export default async function OrdensPage({
   if (data_ate) query = query.lte('data_venda', data_ate)
   if (isGerencia && vendedor_id) query = query.eq('consultor_id', vendedor_id)
   if (filtrarPorForma) query = query.in('id', idsComForma)
+  if (isAdmin && financiamento === 'sim') query = query.gt('valor_financiado', 0)
+  if (isAdmin && financiamento === 'nao') query = query.eq('valor_financiado', 0)
   if (busca) {
     const termo = `%${busca}%`
     query = query.or(`cliente_nome.ilike.${termo},veiculo_marca.ilike.${termo},veiculo_modelo.ilike.${termo},veiculo_placa.ilike.${termo}`)
@@ -123,6 +126,8 @@ export default async function OrdensPage({
     if (data_ate) q.lte('data_venda', data_ate)
     if (isGerencia && vendedor_id) q.eq('consultor_id', vendedor_id)
     if (filtrarPorForma) q.in('id', idsComForma)
+    if (isAdmin && financiamento === 'sim') q.gt('valor_financiado', 0)
+    if (isAdmin && financiamento === 'nao') q.eq('valor_financiado', 0)
     if (busca) {
       const termo = `%${busca}%`
       q.or(`cliente_nome.ilike.${termo},veiculo_marca.ilike.${termo},veiculo_modelo.ilike.${termo},veiculo_placa.ilike.${termo}`)
@@ -222,6 +227,19 @@ export default async function OrdensPage({
                     options={[
                       { value: '', label: 'Todas formas de pagamento' },
                       ...Object.entries(formaPagamentoLabel).map(([value, label]) => ({ value, label })),
+                    ]}
+                  />
+                </div>
+              )}
+              {isAdmin && (
+                <div className="chip-row">
+                  <ToggleGroup
+                    name="financiamento"
+                    defaultValue={financiamento ?? ''}
+                    options={[
+                      { value: '', label: 'Financiado ou não' },
+                      { value: 'sim', label: 'Financiadas' },
+                      { value: 'nao', label: 'Sem financiamento' },
                     ]}
                   />
                 </div>
