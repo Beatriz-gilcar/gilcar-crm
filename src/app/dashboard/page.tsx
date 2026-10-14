@@ -126,7 +126,9 @@ export default async function DashboardPage({
   // ── Contador de meta de vendas do mês ────────────────────────────────────
   // Consultor vê a própria; gerente/supervisor vê a da sua unidade; admin (e
   // gerência de rede, sem unidade) vê a empresa + todas as unidades.
-  const mes = mesAtualISO()
+  // Mês vem do filtro "De" quando preenchido (metas são sempre mensais, não
+  // dá pra seguir um range de/até arbitrário) — sem filtro, cai no mês atual.
+  const mes = de ? de.slice(0, 7) : mesAtualISO()
   const { inicio, fim } = mesRange(mes)
   const veTudoMetas = isAdmin || (isGerencia && !profile?.unidade_id)
 
