@@ -10,6 +10,10 @@
 -- inalterada aqui) — vendas não tem valor confiável, toda venda lançada por
 -- lá entra com valor=0 (nunca teve campo de preço no formulário).
 
+-- create or replace não deixa mudar o conjunto de colunas de retorno (tirou
+-- valor_total) — precisa derrubar a versão antiga primeiro.
+drop function if exists dashboard_ranking_veiculos(date, date);
+
 create or replace function dashboard_ranking_veiculos(p_inicio date, p_fim date)
   returns table (marca text, modelo text, total bigint)
   language sql security invoker stable set search_path = public
