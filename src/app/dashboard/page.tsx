@@ -4,6 +4,7 @@ import { Topbar } from '@/components/Topbar'
 import { MetaWidget } from '@/components/MetaWidget'
 import { mesAtualISO, mesRange, mesLabel, metaColor } from '@/lib/metas'
 import { isGerenciaCargo, podeVerTudo, isSomenteLeitura } from '@/lib/membros'
+import { formatBRL } from '@/lib/ordens'
 
 type RankingUnidade = {
   unidade_id: string
@@ -25,6 +26,15 @@ type DesempenhoRow = {
 }
 
 type ProfileSummary = { nome: string; cargo: string; unidade_id: string | null }
+
+type RankingVeiculo = { marca: string; modelo: string; total: number; valor_total: number }
+type TicketMedioUnidade = {
+  unidade_id: string
+  unidade_nome: string
+  total_vendas: number
+  valor_total: number
+  ticket_medio: number
+}
 
 // Fim exclusivo do range (dia seguinte, no fuso do Brasil) — assim o "até" é
 // inclusivo daquele dia inteiro mesmo com created_at/data em UTC.
@@ -50,9 +60,15 @@ function pctDe(meta: number, realizado: number): number {
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ de?: string; ate?: string; unidade?: string; consultor?: string }>
+  searchParams: Promise<{ de?: string; ate?: string; unidade?: string; consultor?: string; periodo?: string }>
 }) {
-  const { de, ate, unidade: unidadeFiltro = '', consultor: consultorFiltro = '' } = await searchParams
+  const {
+    de,
+    ate,
+    unidade: unidadeFiltro = '',
+    consultor: consultorFiltro = '',
+    periodo: periodoParam,
+  } = await searchParams
   const supabase = await createClient()
 
   const {
@@ -348,6 +364,38 @@ export default async function DashboardPage({
   // varia por operação): o líder fica verde, os demais escalam pra baixo.
   const maiorConv = Math.max(0, ...desempenho.map((d) => d.conv))
 
+  // ── Veículos mais vendidos + ticket médio por unidade ───────────────────
+  // Fonte é ordens_servico (venda aprovada), não a tabela "vendas" (só serve
+  // de contador pra meta, sem valor confiável). Toggle simples mês/ano — é
+  // um recorte diferente do filtro de/até acima (aquele é livre, este é
+  // "o mês atual" ou "o ano atual").
+  const periodoRanking = periodoParam === 'ano' ? 'ano' : 'mes'
+  const anoAtual = Number(mes.slice(0, 4))
+  const { inicio: rankingInicio, fim: rankingFim } =
+    periodoRanking === 'ano' ? { inicio: `${anoAtual}-01-01`, fim: `${anoAtual + 1}-01-01` } : { inicio, fim }
+
+  let rankingVeiculos: RankingVeiculo[] = []
+  let ticketMedioUnidades: TicketMedioUnidade[] = []
+  if (isGerencia) {
+    const [rankRes, ticketRes] = await Promise.all([
+      supabase.rpc('dashboard_ranking_veiculos', { p_inicio: rankingInicio, p_fim: rankingFim }),
+      supabase.rpc('dashboard_ticket_medio_unidade', { p_inicio: rankingInicio, p_fim: rankingFim }),
+    ])
+    rankingVeiculos = ((rankRes.data ?? []) as RankingVeiculo[]).slice(0, 10)
+    ticketMedioUnidades = (ticketRes.data ?? []) as TicketMedioUnidade[]
+  }
+
+  // Preserva os filtros de cima (de/até/unidade/consultor) ao trocar mês/ano.
+  function hrefPeriodoRanking(p: 'mes' | 'ano') {
+    const qs = new URLSearchParams()
+    if (de) qs.set('de', de)
+    if (ate) qs.set('ate', ate)
+    if (unidadeFiltro) qs.set('unidade', unidadeFiltro)
+    if (consultorFiltro) qs.set('consultor', consultorFiltro)
+    qs.set('periodo', p)
+    return `/dashboard?${qs.toString()}`
+  }
+
   return (
     <>
       <Topbar
@@ -593,6 +641,35 @@ export default async function DashboardPage({
                   total: r.total,
                 }))}
               />
+
+              <div>
+                <div className="chip-row">
+                  <a
+                    href={hrefPeriodoRanking('mes')}
+                    className={`toggle-btn ${periodoRanking === 'mes' ? 'ativo' : ''}`}
+                  >
+                    Este mês
+                  </a>
+                  <a
+                    href={hrefPeriodoRanking('ano')}
+                    className={`toggle-btn ${periodoRanking === 'ano' ? 'ativo' : ''}`}
+                  >
+                    Este ano
+                  </a>
+                </div>
+              </div>
+
+              <RankingCard
+                title={`Veículos mais vendidos — ${periodoRanking === 'ano' ? anoAtual : mesLabel(mes)}`}
+                rows={rankingVeiculos.map((r, i) => ({
+                  key: `${r.marca}-${r.modelo}-${i}`,
+                  label: `${r.marca} ${r.modelo}`,
+                  sublabel: formatBRL(r.valor_total),
+                  total: r.total,
+                }))}
+              />
+
+              <TicketMedioTable rows={ticketMedioUnidades} />
             </div>
           )}
         </div>
@@ -666,6 +743,47 @@ function DesempenhoTable({ rows, maiorConv }: { rows: DesempenhoRow[]; maiorConv
                     </tr>
                   )
                 })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function TicketMedioTable({ rows }: { rows: TicketMedioUnidade[] }) {
+  return (
+    <div>
+      <div className="sec-header">
+        <div className="sec-title">Ticket médio por unidade</div>
+        <span className="text-[.66rem] normal-case text-[var(--text-muted)]">
+          Valor da venda já descontado
+        </span>
+      </div>
+      <div className="sec-body" style={{ padding: 0 }}>
+        {rows.length === 0 ? (
+          <p className="sec-pad text-[.8rem] text-[var(--text-muted)]">Sem vendas no período.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-[.8rem]">
+              <thead>
+                <tr className="text-left text-[.64rem] uppercase tracking-wide text-[var(--text-muted)]">
+                  <th className="px-4 py-2 font-bold">Unidade</th>
+                  <th className="px-3 py-2 text-right font-bold">Vendas</th>
+                  <th className="px-3 py-2 text-right font-bold">Valor total</th>
+                  <th className="px-4 py-2 text-right font-bold">Ticket médio</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.unidade_id} className="border-t border-[var(--border)]">
+                    <td className="px-4 py-3 font-semibold text-white">{r.unidade_nome}</td>
+                    <td className="px-3 py-3 text-right text-[var(--text-muted)]">{r.total_vendas}</td>
+                    <td className="px-3 py-3 text-right text-[var(--text-muted)]">{formatBRL(r.valor_total)}</td>
+                    <td className="px-4 py-3 text-right font-bold text-white">{formatBRL(r.ticket_medio)}</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
