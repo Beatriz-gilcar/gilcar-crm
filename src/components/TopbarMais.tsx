@@ -19,6 +19,7 @@ const ICONE: Record<string, string> = {
   'estoque-contagem': '📋',
   sdr: '📞',
   admin: '⚙️',
+  treinamento: '🎓',
 }
 
 // Painel "Mais": reúne as abas menos usadas no dia a dia pra não estourar a

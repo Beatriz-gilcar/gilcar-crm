@@ -24,6 +24,7 @@ type NavKey =
   | 'despesas'
   | 'pagamentos'
   | 'estoque-contagem'
+  | 'treinamento'
 
 // Abas usadas várias vezes por dia: continuam soltas no menu. O resto entra
 // no painel "Mais" (ver GRUPOS_MAIS) pra não estourar a largura — o nav
@@ -33,7 +34,7 @@ const FIXOS: NavKey[] = ['ficha', 'rotina', 'ordens', 'estoque', 'pos-venda', 'd
 const GRUPOS_MAIS: { titulo: string; chaves: NavKey[] }[] = [
   { titulo: 'Atendimento', chaves: ['status-do-dia', 'abastecimento'] },
   { titulo: 'Resultados', chaves: ['metas', 'premiacao', 'despesas', 'pagamentos', 'estoque-contagem'] },
-  { titulo: 'Equipe', chaves: ['mural', 'holerites-rh', 'sdr', 'admin'] },
+  { titulo: 'Equipe', chaves: ['mural', 'holerites-rh', 'sdr', 'admin', 'treinamento'] },
 ]
 
 export function Topbar({
@@ -116,6 +117,7 @@ export function Topbar({
         { key: 'estoque', href: '/estoque', label: 'Estoque' },
         { key: 'pos-venda', href: '/pos-venda', label: 'Pós-venda' },
         { key: 'mural', href: '/mural', label: 'Mural' },
+        { key: 'treinamento', href: '/treinamento', label: 'Treinamento' },
         { key: 'dashboard', href: '/dashboard', label: 'Dashboard' },
       ]
 
