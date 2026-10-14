@@ -3,13 +3,15 @@ import { notFound, redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { Topbar } from '@/components/Topbar'
 import { MetaWidget } from '@/components/MetaWidget'
-import { AutoSubmitCheckbox } from '@/components/AutoSubmitCheckbox'
-import { ETAPAS_TREINAMENTO, calcularProgresso } from '@/lib/treinamento'
+import { calcularProgresso, statusDoModulo } from '@/lib/treinamento'
 import { isGerenciaCargo, podeVerTudo, isSomenteLeitura } from '@/lib/membros'
-import { marcarEtapaTreinamento } from '../actions'
+import { aprovarModulo, pedirRefazerModulo } from '../actions'
 
 type ProfileSummary = { nome: string; cargo: string; unidade_id: string | null }
 type ConsultorDetail = { id: string; nome: string; cargo: string; unidade_id: string | null; unidades: { nome: string } | null }
+type Modulo = { id: string; titulo: string; posicao: number }
+type ProgressoRow = { modulo_id: string; enviado_em: string | null; aprovado_em: string | null }
+type RespostaComCerta = { modulo_id: string; opcao: { correta: boolean } | null }
 
 export default async function TreinamentoDetalhePage({
   params,
@@ -64,14 +66,41 @@ export default async function TreinamentoDetalhePage({
     notFound()
   }
 
+  const { data: modulosData } = await supabase
+    .from('treinamento_modulos')
+    .select('id, titulo, posicao')
+    .eq('ativo', true)
+    .order('posicao')
+    .overrideTypes<Modulo[]>()
+  const modulos = modulosData ?? []
+
   const { data: progressoData } = await supabase
     .from('treinamento_progresso')
-    .select('etapa')
+    .select('modulo_id, enviado_em, aprovado_em')
     .eq('consultor_id', consultor.id)
-    .overrideTypes<{ etapa: string }[]>()
+    .overrideTypes<ProgressoRow[]>()
+  const progressoPorModulo = new Map((progressoData ?? []).map((p) => [p.modulo_id, p]))
 
-  const feitas = new Set((progressoData ?? []).map((p) => p.etapa))
-  const { total, feitas: qtdFeitas, percentual } = calcularProgresso(feitas)
+  // Nota de cada módulo: junta as respostas do consultor com a tabela BASE de
+  // opções (tem a coluna `correta`) — a gerência já tem select ali, sem
+  // precisar da view que o consultor usa pra tirar o quiz.
+  const { data: respostasData } = await supabase
+    .from('treinamento_respostas')
+    .select('modulo_id, opcao:treinamento_opcoes(correta)')
+    .eq('consultor_id', consultor.id)
+    .overrideTypes<RespostaComCerta[]>()
+  const notaPorModulo = new Map<string, { total: number; certas: number }>()
+  for (const r of respostasData ?? []) {
+    const atual = notaPorModulo.get(r.modulo_id) ?? { total: 0, certas: 0 }
+    atual.total += 1
+    if (r.opcao?.correta) atual.certas += 1
+    notaPorModulo.set(r.modulo_id, atual)
+  }
+
+  const { total, feitas, percentual } = calcularProgresso(
+    modulos.length,
+    modulos.filter((m) => progressoPorModulo.get(m.id)?.aprovado_em).length
+  )
 
   return (
     <>
@@ -92,11 +121,11 @@ export default async function TreinamentoDetalhePage({
             <MetaWidget
               titulo={consultor.nome}
               subtitulo={consultor.unidades?.nome ?? undefined}
-              realizadoLabel={`${qtdFeitas} de ${total} etapas`}
-              metaLabel={`${total} etapas`}
+              realizadoLabel={`${feitas} de ${total} módulos`}
+              metaLabel={`${total} módulos`}
               pct={percentual}
-              faltam={total - qtdFeitas}
-              substantivo="etapas"
+              faltam={total - feitas}
+              substantivo="módulos"
             />
           </div>
 
@@ -106,30 +135,49 @@ export default async function TreinamentoDetalhePage({
             </p>
           )}
 
-          <div className="mt-4 sec-body" style={{ padding: 0 }}>
-            {ETAPAS_TREINAMENTO.map((e) => {
-              const concluida = feitas.has(e.chave)
+          <div className="mt-4 flex flex-col gap-3">
+            {modulos.map((m) => {
+              const status = statusDoModulo(progressoPorModulo.get(m.id))
+              const nota = notaPorModulo.get(m.id)
               return (
-                <div
-                  key={e.chave}
-                  className="flex items-center justify-between gap-3 border-t border-[var(--border)] px-4 py-3 first:border-t-0"
-                >
-                  {soLeitura ? (
-                    <>
-                      <p className="normal-case text-white">{e.titulo}</p>
-                      <span className={`badge ${concluida ? 'badge-aprovado' : 'badge-pendente'}`}>
-                        {concluida ? 'Feito' : 'Pendente'}
-                      </span>
-                    </>
-                  ) : (
-                    <form action={marcarEtapaTreinamento} className="flex w-full items-center justify-between gap-3">
-                      <input type="hidden" name="consultor_id" value={consultor.id} />
-                      <input type="hidden" name="etapa" value={e.chave} />
-                      <label className="flex flex-1 items-center gap-2 normal-case text-white">
-                        <AutoSubmitCheckbox name="concluido" defaultChecked={concluida} />
-                        {e.titulo}
-                      </label>
-                    </form>
+                <div key={m.id} className="card sec-pad">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="font-semibold text-white">{m.titulo}</p>
+                    <div className="flex items-center gap-2">
+                      {nota && (
+                        <span className="text-[.72rem] normal-case text-[var(--text-muted)]">
+                          {nota.certas}/{nota.total} corretas
+                        </span>
+                      )}
+                      {status === 'aprovado' && <span className="badge badge-aprovado">Aprovado</span>}
+                      {status === 'aguardando_aprovacao' && (
+                        <span className="badge badge-enviado">Aguardando aprovação</span>
+                      )}
+                      {status === 'pendente' && <span className="badge badge-pendente">Pendente</span>}
+                    </div>
+                  </div>
+
+                  {!soLeitura && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {status === 'aguardando_aprovacao' && (
+                        <form action={aprovarModulo}>
+                          <input type="hidden" name="consultor_id" value={consultor.id} />
+                          <input type="hidden" name="modulo_id" value={m.id} />
+                          <button type="submit" className="btn btn-red btn-sm">
+                            Aprovar módulo
+                          </button>
+                        </form>
+                      )}
+                      {status !== 'pendente' && (
+                        <form action={pedirRefazerModulo}>
+                          <input type="hidden" name="consultor_id" value={consultor.id} />
+                          <input type="hidden" name="modulo_id" value={m.id} />
+                          <button type="submit" className="btn btn-outline btn-sm">
+                            Pedir para refazer
+                          </button>
+                        </form>
+                      )}
+                    </div>
                   )}
                 </div>
               )
