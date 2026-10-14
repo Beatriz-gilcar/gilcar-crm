@@ -27,7 +27,7 @@ type DesempenhoRow = {
 
 type ProfileSummary = { nome: string; cargo: string; unidade_id: string | null }
 
-type RankingVeiculo = { marca: string; modelo: string; total: number; valor_total: number }
+type RankingVeiculo = { marca: string; modelo: string; total: number }
 type TicketMedioUnidade = {
   unidade_id: string
   unidade_nome: string
@@ -365,10 +365,12 @@ export default async function DashboardPage({
   const maiorConv = Math.max(0, ...desempenho.map((d) => d.conv))
 
   // ── Veículos mais vendidos + ticket médio por unidade ───────────────────
-  // Fonte é ordens_servico (venda aprovada), não a tabela "vendas" (só serve
-  // de contador pra meta, sem valor confiável). Toggle simples mês/ano — é
-  // um recorte diferente do filtro de/até acima (aquele é livre, este é
-  // "o mês atual" ou "o ano atual").
+  // Ranking vem de "vendas" (lançamento manual da Corrida da Meta): é o
+  // registro mais completo e sem risco de duplicata, mesmo quando a venda
+  // não tem OS aprovada correspondente. Ticket médio continua em
+  // ordens_servico — vendas não tem valor confiável (entra sempre com
+  // valor=0). Toggle simples mês/ano — é um recorte diferente do filtro
+  // de/até acima (aquele é livre, este é "o mês atual" ou "o ano atual").
   const periodoRanking = periodoParam === 'ano' ? 'ano' : 'mes'
   const anoAtual = Number(mes.slice(0, 4))
   const { inicio: rankingInicio, fim: rankingFim } =
@@ -663,8 +665,7 @@ export default async function DashboardPage({
                 title={`Veículos mais vendidos — ${periodoRanking === 'ano' ? anoAtual : mesLabel(mes)}`}
                 rows={rankingVeiculos.map((r, i) => ({
                   key: `${r.marca}-${r.modelo}-${i}`,
-                  label: `${r.marca} ${r.modelo}`,
-                  sublabel: formatBRL(r.valor_total),
+                  label: [r.marca, r.modelo].filter(Boolean).join(' ') || '—',
                   total: r.total,
                 }))}
               />
