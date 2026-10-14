@@ -113,7 +113,11 @@ export default async function OrdensPage({
     .select('*', { count: 'exact', head: true })
     .eq('status', 'pendente')
   const valoresQuery = supabase.from('ordens_servico').select('falta_receber').eq('status', 'pendente')
-  for (const q of [totalQuery, pendentesQuery, valoresQuery]) {
+  // Contagem por status pros chips do filtro — mesmos filtros da lista
+  // (busca/data/vendedor/forma), menos o de status em si: cada chip mostra
+  // quantas ordens teria SE fosse escolhido, não só a contagem da seleção atual.
+  const statusCountQuery = supabase.from('ordens_servico').select('status')
+  for (const q of [totalQuery, pendentesQuery, valoresQuery, statusCountQuery]) {
     if (unidadeGerente) q.eq('unidade_id', unidadeGerente)
     if (data_de) q.gte('data_venda', data_de)
     if (data_ate) q.lte('data_venda', data_ate)
@@ -125,15 +129,17 @@ export default async function OrdensPage({
     }
   }
   if (status) totalQuery = totalQuery.eq('status', status)
-  const [{ count: total }, { count: pendentes }, { data: pendentesValores }] = await Promise.all([
-    totalQuery,
-    pendentesQuery,
-    valoresQuery,
-  ])
+  const [{ count: total }, { count: pendentes }, { data: pendentesValores }, { data: statusCounts }] =
+    await Promise.all([totalQuery, pendentesQuery, valoresQuery, statusCountQuery])
   const faltaReceberPendente = (pendentesValores ?? []).reduce(
     (acc, o) => acc + (o.falta_receber ?? 0),
     0
   )
+  const contagemPorStatus = new Map<string, number>()
+  for (const o of statusCounts ?? []) {
+    contagemPorStatus.set(o.status, (contagemPorStatus.get(o.status) ?? 0) + 1)
+  }
+  const totalParaChips = (statusCounts ?? []).length
 
   return (
     <>
@@ -200,8 +206,11 @@ export default async function OrdensPage({
                   name="status"
                   defaultValue={status ?? ''}
                   options={[
-                    { value: '', label: 'Todos status' },
-                    ...Object.entries(statusLabel).map(([value, label]) => ({ value, label })),
+                    { value: '', label: `Todos status (${totalParaChips})` },
+                    ...Object.entries(statusLabel).map(([value, label]) => ({
+                      value,
+                      label: `${label} (${contagemPorStatus.get(value) ?? 0})`,
+                    })),
                   ]}
                 />
               </div>
