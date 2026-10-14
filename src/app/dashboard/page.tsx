@@ -35,6 +35,7 @@ type TicketMedioUnidade = {
   valor_total: number
   ticket_medio: number
 }
+type Financeira = { financeira: string; total: number; valor_total: number; valor_medio: number }
 
 // Fim exclusivo do range (dia seguinte, no fuso do Brasil) — assim o "até" é
 // inclusivo daquele dia inteiro mesmo com created_at/data em UTC.
@@ -378,13 +379,16 @@ export default async function DashboardPage({
 
   let rankingVeiculos: RankingVeiculo[] = []
   let ticketMedioUnidades: TicketMedioUnidade[] = []
+  let financeiras: Financeira[] = []
   if (isGerencia) {
-    const [rankRes, ticketRes] = await Promise.all([
+    const [rankRes, ticketRes, financeirasRes] = await Promise.all([
       supabase.rpc('dashboard_ranking_veiculos', { p_inicio: rankingInicio, p_fim: rankingFim }),
       supabase.rpc('dashboard_ticket_medio_unidade', { p_inicio: rankingInicio, p_fim: rankingFim }),
+      supabase.rpc('dashboard_financeiras', { p_inicio: rankingInicio, p_fim: rankingFim }),
     ])
     rankingVeiculos = ((rankRes.data ?? []) as RankingVeiculo[]).slice(0, 10)
     ticketMedioUnidades = (ticketRes.data ?? []) as TicketMedioUnidade[]
+    financeiras = (financeirasRes.data ?? []) as Financeira[]
   }
 
   // Preserva os filtros de cima (de/até/unidade/consultor) ao trocar mês/ano.
@@ -671,6 +675,8 @@ export default async function DashboardPage({
               />
 
               <TicketMedioTable rows={ticketMedioUnidades} />
+
+              <FinanceirasTable rows={financeiras} />
             </div>
           )}
         </div>
@@ -783,6 +789,47 @@ function TicketMedioTable({ rows }: { rows: TicketMedioUnidade[] }) {
                     <td className="px-3 py-3 text-right text-[var(--text-muted)]">{r.total_vendas}</td>
                     <td className="px-3 py-3 text-right text-[var(--text-muted)]">{formatBRL(r.valor_total)}</td>
                     <td className="px-4 py-3 text-right font-bold text-white">{formatBRL(r.ticket_medio)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function FinanceirasTable({ rows }: { rows: Financeira[] }) {
+  return (
+    <div>
+      <div className="sec-header">
+        <div className="sec-title">Financeiras</div>
+        <span className="text-[.66rem] normal-case text-[var(--text-muted)]">
+          Só vendas financiadas — ordenado pela mais usada
+        </span>
+      </div>
+      <div className="sec-body" style={{ padding: 0 }}>
+        {rows.length === 0 ? (
+          <p className="sec-pad text-[.8rem] text-[var(--text-muted)]">Sem financiamentos no período.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-[.8rem]">
+              <thead>
+                <tr className="text-left text-[.64rem] uppercase tracking-wide text-[var(--text-muted)]">
+                  <th className="px-4 py-2 font-bold">Financeira</th>
+                  <th className="px-3 py-2 text-right font-bold">Vendas</th>
+                  <th className="px-3 py-2 text-right font-bold">Valor financiado</th>
+                  <th className="px-4 py-2 text-right font-bold">Valor médio</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.financeira} className="border-t border-[var(--border)]">
+                    <td className="px-4 py-3 font-semibold normal-case text-white">{r.financeira}</td>
+                    <td className="px-3 py-3 text-right text-[var(--text-muted)]">{r.total}</td>
+                    <td className="px-3 py-3 text-right text-[var(--text-muted)]">{formatBRL(r.valor_total)}</td>
+                    <td className="px-4 py-3 text-right font-bold text-white">{formatBRL(r.valor_medio)}</td>
                   </tr>
                 ))}
               </tbody>
