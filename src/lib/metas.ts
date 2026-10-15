@@ -58,6 +58,35 @@ export function mesRange(periodo: string): { inicio: string; fim: string } {
   return { inicio, fim }
 }
 
+// Trimestre do mês de referência (jan-mar, abr-jun, jul-set, out-dez).
+export function trimestreRange(mesReferencia: string): { inicio: string; fim: string } {
+  const [anoStr, mesStr] = mesReferencia.split('-')
+  const ano = Number(anoStr)
+  const mes = Number(mesStr)
+  const mesInicio = Math.floor((mes - 1) / 3) * 3 // offset de janeiro, 0-based
+  const toISO = (d: Date) => d.toISOString().slice(0, 10)
+  return { inicio: toISO(new Date(ano, mesInicio, 1)), fim: toISO(new Date(ano, mesInicio + 3, 1)) }
+}
+
+// Mesmo range de semestreRange, mas a partir de um "YYYY-MM" (formato que o
+// Dashboard já usa) em vez do "YYYY-S1"/"YYYY-S2".
+export function semestreRangeDoMes(mesReferencia: string): { inicio: string; fim: string } {
+  const [anoStr, mesStr] = mesReferencia.split('-')
+  const semestre = Number(mesStr) <= 6 ? 'S1' : 'S2'
+  return semestreRange(`${anoStr}-${semestre}`)
+}
+
+export function rangeDoPeriodo(
+  mesReferencia: string,
+  tipo: 'mes' | 'trimestre' | 'semestre' | 'ano'
+): { inicio: string; fim: string } {
+  if (tipo === 'mes') return mesRange(mesReferencia)
+  if (tipo === 'trimestre') return trimestreRange(mesReferencia)
+  if (tipo === 'semestre') return semestreRangeDoMes(mesReferencia)
+  const ano = mesReferencia.slice(0, 4)
+  return { inicio: `${ano}-01-01`, fim: `${Number(ano) + 1}-01-01` }
+}
+
 export function metaColor(pct: number): { badgeClass: string; fillColor: string } {
   if (pct >= 100) return { badgeClass: 'badge-aprovado', fillColor: 'var(--success)' }
   if (pct >= 70) return { badgeClass: 'badge-pendente', fillColor: 'var(--warning)' }

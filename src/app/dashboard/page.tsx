@@ -2,9 +2,10 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { Topbar } from '@/components/Topbar'
 import { MetaWidget } from '@/components/MetaWidget'
-import { mesAtualISO, mesRange, mesLabel, metaColor } from '@/lib/metas'
+import { mesAtualISO, mesRange, mesLabel, metaColor, rangeDoPeriodo } from '@/lib/metas'
 import { isGerenciaCargo, podeVerTudo, isSomenteLeitura } from '@/lib/membros'
-import { formatBRL } from '@/lib/ordens'
+import { origemPresencialLabel, origemDigitalLabel } from '@/lib/atendimentos'
+import { formatBRL, formaPagamentoLabel } from '@/lib/ordens'
 
 type RankingUnidade = {
   unidade_id: string
@@ -36,6 +37,10 @@ type TicketMedioUnidade = {
   ticket_medio: number
 }
 type Financeira = { financeira: string; total: number; valor_total: number; valor_medio: number }
+type RankingVeiculoUnidade = { unidade_id: string; unidade_nome: string; marca: string; modelo: string; total: number }
+type PercentualDesconto = { total_vendas: number; vendas_com_desconto: number; percentual: number }
+type FormaPagamentoResumo = { forma: string; total: number; valor_total: number }
+type OrigemAtendimento = { tipo: string; origem: string; total: number; fechados: number; percentual: number }
 
 // Fim exclusivo do range (dia seguinte, no fuso do Brasil) — assim o "até" é
 // inclusivo daquele dia inteiro mesmo com created_at/data em UTC.
@@ -367,34 +372,63 @@ export default async function DashboardPage({
   // varia por operação): o líder fica verde, os demais escalam pra baixo.
   const maiorConv = Math.max(0, ...desempenho.map((d) => d.conv))
 
-  // ── Veículos mais vendidos + ticket médio por unidade ───────────────────
-  // Ranking vem de "vendas" (lançamento manual da Corrida da Meta): é o
-  // registro mais completo e sem risco de duplicata, mesmo quando a venda
-  // não tem OS aprovada correspondente. Ticket médio continua em
-  // ordens_servico — vendas não tem valor confiável (entra sempre com
-  // valor=0). Toggle simples mês/ano — é um recorte diferente do filtro
-  // de/até acima (aquele é livre, este é "o mês atual" ou "o ano atual").
-  const periodoRanking = periodoParam === 'ano' ? 'ano' : 'mes'
+  // ── Veículos mais vendidos + ticket médio + financeiras + etc ───────────
+  // Ranking de veículos vem de "vendas" (lançamento manual da Corrida da
+  // Meta): é o registro mais completo e sem risco de duplicata, mesmo
+  // quando a venda não tem OS aprovada correspondente. O resto (ticket
+  // médio, financeiras, desconto, formas de pagamento) vem de
+  // ordens_servico, deduplicado por placa+cliente. Toggle mês/trimestre/
+  // semestre/ano — um recorte diferente do filtro de/até acima (aquele é
+  // livre, este é sempre "o período atual" de um tipo).
+  const periodoRanking: 'mes' | 'trimestre' | 'semestre' | 'ano' =
+    periodoParam === 'ano' || periodoParam === 'trimestre' || periodoParam === 'semestre' ? periodoParam : 'mes'
   const anoAtual = Number(mes.slice(0, 4))
-  const { inicio: rankingInicio, fim: rankingFim } =
-    periodoRanking === 'ano' ? { inicio: `${anoAtual}-01-01`, fim: `${anoAtual + 1}-01-01` } : { inicio, fim }
+  const { inicio: rankingInicio, fim: rankingFim } = rangeDoPeriodo(mes, periodoRanking)
 
   let rankingVeiculos: RankingVeiculo[] = []
+  let rankingVeiculosPorUnidade: RankingVeiculoUnidade[] = []
   let ticketMedioUnidades: TicketMedioUnidade[] = []
   let financeiras: Financeira[] = []
+  let percentualDesconto: PercentualDesconto | null = null
+  let formasPagamentoResumo: FormaPagamentoResumo[] = []
+  let origemAtendimentos: OrigemAtendimento[] = []
   if (isGerencia) {
-    const [rankRes, ticketRes, financeirasRes] = await Promise.all([
+    const [rankRes, rankUnidadeRes, ticketRes, financeirasRes, descontoRes, formasRes, origemRes] = await Promise.all([
       supabase.rpc('dashboard_ranking_veiculos', { p_inicio: rankingInicio, p_fim: rankingFim }),
+      supabase.rpc('dashboard_ranking_veiculos_por_unidade', { p_inicio: rankingInicio, p_fim: rankingFim }),
       supabase.rpc('dashboard_ticket_medio_unidade', { p_inicio: rankingInicio, p_fim: rankingFim }),
       supabase.rpc('dashboard_financeiras', { p_inicio: rankingInicio, p_fim: rankingFim }),
+      supabase.rpc('dashboard_percentual_desconto', { p_inicio: rankingInicio, p_fim: rankingFim }),
+      supabase.rpc('dashboard_formas_pagamento', { p_inicio: rankingInicio, p_fim: rankingFim }),
+      supabase.rpc('dashboard_origem_atendimentos', { p_inicio: rankingInicio, p_fim: rankingFim }),
     ])
     rankingVeiculos = ((rankRes.data ?? []) as RankingVeiculo[]).slice(0, 10)
+    rankingVeiculosPorUnidade = (rankUnidadeRes.data ?? []) as RankingVeiculoUnidade[]
     ticketMedioUnidades = (ticketRes.data ?? []) as TicketMedioUnidade[]
     financeiras = (financeirasRes.data ?? []) as Financeira[]
+    percentualDesconto = ((descontoRes.data ?? [])[0] as PercentualDesconto | undefined) ?? null
+    formasPagamentoResumo = (formasRes.data ?? []) as FormaPagamentoResumo[]
+    origemAtendimentos = (origemRes.data ?? []) as OrigemAtendimento[]
   }
 
-  // Preserva os filtros de cima (de/até/unidade/consultor) ao trocar mês/ano.
-  function hrefPeriodoRanking(p: 'mes' | 'ano') {
+  const rankingPorUnidadeAgrupado = new Map<string, { unidade_nome: string; itens: RankingVeiculoUnidade[] }>()
+  for (const r of rankingVeiculosPorUnidade) {
+    const grupo = rankingPorUnidadeAgrupado.get(r.unidade_id) ?? { unidade_nome: r.unidade_nome, itens: [] }
+    grupo.itens.push(r)
+    rankingPorUnidadeAgrupado.set(r.unidade_id, grupo)
+  }
+
+  const periodoTituloLabel =
+    periodoRanking === 'ano'
+      ? `${anoAtual}`
+      : periodoRanking === 'mes'
+      ? mesLabel(mes)
+      : periodoRanking === 'trimestre'
+      ? `${Math.floor((Number(mes.slice(5, 7)) - 1) / 3) + 1}º trimestre de ${anoAtual}`
+      : `${Number(mes.slice(5, 7)) <= 6 ? '1º' : '2º'} semestre de ${anoAtual}`
+
+  // Preserva os filtros de cima (de/até/unidade/consultor) ao trocar o período.
+  function hrefPeriodoRanking(p: 'mes' | 'trimestre' | 'semestre' | 'ano') {
     const qs = new URLSearchParams()
     if (de) qs.set('de', de)
     if (ate) qs.set('ate', ate)
@@ -652,23 +686,20 @@ export default async function DashboardPage({
 
               <div>
                 <div className="chip-row">
-                  <a
-                    href={hrefPeriodoRanking('mes')}
-                    className={`toggle-btn ${periodoRanking === 'mes' ? 'ativo' : ''}`}
-                  >
-                    Este mês
-                  </a>
-                  <a
-                    href={hrefPeriodoRanking('ano')}
-                    className={`toggle-btn ${periodoRanking === 'ano' ? 'ativo' : ''}`}
-                  >
-                    Este ano
-                  </a>
+                  {(['mes', 'trimestre', 'semestre', 'ano'] as const).map((p) => (
+                    <a
+                      key={p}
+                      href={hrefPeriodoRanking(p)}
+                      className={`toggle-btn ${periodoRanking === p ? 'ativo' : ''}`}
+                    >
+                      {{ mes: 'Este mês', trimestre: 'Este trimestre', semestre: 'Este semestre', ano: 'Este ano' }[p]}
+                    </a>
+                  ))}
                 </div>
               </div>
 
               <RankingCard
-                title={`Veículos mais vendidos — ${periodoRanking === 'ano' ? anoAtual : mesLabel(mes)}`}
+                title={`Veículos mais vendidos — ${periodoTituloLabel}`}
                 rows={rankingVeiculos.map((r, i) => ({
                   key: `${r.marca}-${r.modelo}-${i}`,
                   label: [r.marca, r.modelo].filter(Boolean).join(' ') || '—',
@@ -676,9 +707,47 @@ export default async function DashboardPage({
                 }))}
               />
 
+              <div>
+                <div className="sec-header">
+                  <div className="sec-title">Mais vendidos por unidade — {periodoTituloLabel}</div>
+                </div>
+                {rankingPorUnidadeAgrupado.size === 0 ? (
+                  <p className="sec-pad text-[.8rem] text-[var(--text-muted)]">Sem dados no período.</p>
+                ) : (
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    {[...rankingPorUnidadeAgrupado.values()].map((grupo) => (
+                      <RankingCard
+                        key={grupo.unidade_nome}
+                        title={grupo.unidade_nome}
+                        rows={grupo.itens.map((r, i) => ({
+                          key: `${r.marca}-${r.modelo}-${i}`,
+                          label: [r.marca, r.modelo].filter(Boolean).join(' ') || '—',
+                          total: r.total,
+                        }))}
+                      />
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <TicketMedioTable rows={ticketMedioUnidades} />
 
               <FinanceirasTable rows={financeiras} />
+
+              {percentualDesconto && (
+                <div className="kpi-grid">
+                  <StatCard label={`Vendas — ${periodoTituloLabel}`} value={percentualDesconto.total_vendas} />
+                  <StatCard label="Com desconto" value={percentualDesconto.vendas_com_desconto} />
+                  <div className="kpi-card">
+                    <div className="kpi-label">% com desconto</div>
+                    <div className="kpi-val">{percentualDesconto.percentual.toFixed(1)}%</div>
+                  </div>
+                </div>
+              )}
+
+              <FormasPagamentoTable rows={formasPagamentoResumo} />
+
+              <OrigemAtendimentosTable rows={origemAtendimentos} />
             </div>
           )}
         </div>
@@ -834,6 +903,98 @@ function FinanceirasTable({ rows }: { rows: Financeira[] }) {
                     <td className="px-4 py-3 text-right font-bold text-white">{formatBRL(r.valor_medio)}</td>
                   </tr>
                 ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function FormasPagamentoTable({ rows }: { rows: FormaPagamentoResumo[] }) {
+  return (
+    <div>
+      <div className="sec-header">
+        <div className="sec-title">Formas de pagamento</div>
+      </div>
+      <div className="sec-body" style={{ padding: 0 }}>
+        {rows.length === 0 ? (
+          <p className="sec-pad text-[.8rem] text-[var(--text-muted)]">Sem vendas no período.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-[.8rem]">
+              <thead>
+                <tr className="text-left text-[.64rem] uppercase tracking-wide text-[var(--text-muted)]">
+                  <th className="px-4 py-2 font-bold">Forma</th>
+                  <th className="px-3 py-2 text-right font-bold">Vendas</th>
+                  <th className="px-4 py-2 text-right font-bold">Valor total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.forma} className="border-t border-[var(--border)]">
+                    <td className="px-4 py-3 font-semibold normal-case text-white">
+                      {formaPagamentoLabel[r.forma] ?? r.forma}
+                    </td>
+                    <td className="px-3 py-3 text-right text-[var(--text-muted)]">{r.total}</td>
+                    <td className="px-4 py-3 text-right font-bold text-white">{formatBRL(r.valor_total)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function OrigemAtendimentosTable({ rows }: { rows: OrigemAtendimento[] }) {
+  return (
+    <div>
+      <div className="sec-header">
+        <div className="sec-title">Origem dos atendimentos</div>
+        <span className="text-[.66rem] normal-case text-[var(--text-muted)]">
+          % = fechou negócio
+        </span>
+      </div>
+      <div className="sec-body" style={{ padding: 0 }}>
+        {rows.length === 0 ? (
+          <p className="sec-pad text-[.8rem] text-[var(--text-muted)]">Sem atendimentos no período.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-[.8rem]">
+              <thead>
+                <tr className="text-left text-[.64rem] uppercase tracking-wide text-[var(--text-muted)]">
+                  <th className="px-4 py-2 font-bold">Origem</th>
+                  <th className="px-3 py-2 font-bold">Tipo</th>
+                  <th className="px-3 py-2 text-right font-bold">Atendimentos</th>
+                  <th className="px-3 py-2 text-right font-bold">Fecharam</th>
+                  <th className="px-4 py-2 text-right font-bold">%</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => {
+                  const label =
+                    r.tipo === 'presencial'
+                      ? origemPresencialLabel[r.origem] ?? r.origem
+                      : origemDigitalLabel[r.origem] ?? r.origem
+                  const cor = metaColor(r.percentual).fillColor
+                  return (
+                    <tr key={`${r.tipo}-${r.origem}`} className="border-t border-[var(--border)]">
+                      <td className="px-4 py-3 font-semibold normal-case text-white">{label}</td>
+                      <td className="px-3 py-3 normal-case text-[var(--text-muted)]">
+                        {r.tipo === 'presencial' ? 'Presencial' : 'Digital'}
+                      </td>
+                      <td className="px-3 py-3 text-right text-[var(--text-muted)]">{r.total}</td>
+                      <td className="px-3 py-3 text-right text-[var(--text-muted)]">{r.fechados}</td>
+                      <td className="px-4 py-3 text-right font-bold" style={{ color: cor }}>
+                        {r.percentual.toFixed(1)}%
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>
