@@ -520,12 +520,20 @@ export function OrdemForm({
             </div>
             <div className="form-group" style={{ marginBottom: 0 }}>
               <label>Financeira</label>
-              <input name="financeira" type="text" list="bancos-list" placeholder="Selecione ou digite" defaultValue={defaults.financeira} />
-              <datalist id="bancos-list">
+              <select name="financeira" defaultValue={defaults.financeira}>
+                <option value="">— Selecione —</option>
                 {bancos.map((b) => (
-                  <option key={b} value={b} />
+                  <option key={b} value={b}>
+                    {b}
+                  </option>
                 ))}
-              </datalist>
+                {/* OS antiga com financeira fora da lista (digitada à mão, de quando o
+                    campo ainda era texto livre) — mantém selecionável pra não trocar o
+                    valor salvo sem querer só por abrir e salvar a edição de novo. */}
+                {defaults.financeira && !bancos.includes(defaults.financeira) && (
+                  <option value={defaults.financeira}>{defaults.financeira} (fora da lista)</option>
+                )}
+              </select>
             </div>
           </div>
         </div>
