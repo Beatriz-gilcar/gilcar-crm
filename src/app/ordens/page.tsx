@@ -92,7 +92,14 @@ export default async function OrdensPage({
     .order('data_venda', { ascending: false })
 
   if (unidadeGerente) query = query.eq('unidade_id', unidadeGerente)
-  if (status) query = query.eq('status', status)
+  if (status) {
+    query = query.eq('status', status)
+  } else if (!busca) {
+    // Reprovada some da lista por padrão (inclusive das duplicatas que o
+    // trigger reprova sozinho) — só aparece escolhendo o chip "Reprovada"
+    // ou buscando por nome/veículo/placa.
+    query = query.neq('status', 'reprovada')
+  }
   if (data_de) query = query.gte('data_venda', data_de)
   if (data_ate) query = query.lte('data_venda', data_ate)
   if (isGerencia && vendedor_id) query = query.eq('consultor_id', vendedor_id)
@@ -144,7 +151,9 @@ export default async function OrdensPage({
   for (const o of statusCounts ?? []) {
     contagemPorStatus.set(o.status, (contagemPorStatus.get(o.status) ?? 0) + 1)
   }
-  const totalParaChips = (statusCounts ?? []).length
+  // "Todos status" espelha o que a lista de cima realmente mostra: sem
+  // busca, reprovada fica de fora da contagem também.
+  const totalParaChips = (statusCounts ?? []).filter((s) => busca || s.status !== 'reprovada').length
 
   return (
     <>
