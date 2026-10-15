@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   maskCpfCnpj,
   maskRgRj,
@@ -11,6 +11,7 @@ import {
   formatBRLNumber,
 } from '@/lib/mask'
 import { formatBRL } from '@/lib/ordens'
+import { buscarHistoricoCliente } from '@/app/ordens/actions'
 
 type UnidadeOpt = { id: string; nome: string }
 type VeiculoOpt = { id: string; label: string }
@@ -160,6 +161,23 @@ export function OrdemForm({
   const [temDesconto, setTemDesconto] = useState(parseBRL(defaults.desconto) > 0)
 
   const [cpf, setCpf] = useState(defaults.cliente_cpf_cnpj)
+  // Quantas compras aprovadas esse CPF/CNPJ já tem — só busca quando o
+  // documento está completo (11 ou 14 dígitos), com um pequeno delay pra não
+  // disparar uma consulta a cada tecla digitada.
+  const [historicoCliente, setHistoricoCliente] = useState<number | null>(null)
+  useEffect(() => {
+    const digitos = cpf.replace(/\D/g, '')
+    if (digitos.length !== 11 && digitos.length !== 14) {
+      setHistoricoCliente(null)
+      return
+    }
+    const timer = setTimeout(() => {
+      buscarHistoricoCliente(cpf, ordemId)
+        .then(setHistoricoCliente)
+        .catch(() => setHistoricoCliente(null))
+    }, 400)
+    return () => clearTimeout(timer)
+  }, [cpf, ordemId])
   const [rg, setRg] = useState(defaults.cliente_rg)
   const [celular, setCelular] = useState(defaults.cliente_celular)
   const [cep, setCep] = useState(defaults.cliente_cep)
@@ -337,6 +355,13 @@ export function OrdemForm({
                 onChange={(e) => setCpf(maskCpfCnpj(e.target.value))}
                 placeholder="000.000.000-00"
               />
+              {historicoCliente !== null && (
+                <p className="mt-1 text-[.68rem] normal-case text-[var(--coral)]">
+                  {historicoCliente === 0
+                    ? '1ª compra deste cliente'
+                    : `${historicoCliente + 1}ª compra deste cliente (${historicoCliente} aprovada${historicoCliente > 1 ? 's' : ''} antes)`}
+                </p>
+              )}
             </div>
           </div>
           <div className="grid2">

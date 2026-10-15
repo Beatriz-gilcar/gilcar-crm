@@ -665,3 +665,26 @@ export async function deleteOrdem(formData: FormData) {
   revalidatePath('/estoque')
   redirect('/ordens')
 }
+
+// Quantas vendas aprovadas esse CPF/CNPJ já tem — usado pelo OrdemForm pra
+// mostrar "esta é a Nª compra" em tempo real enquanto o consultor digita o
+// documento do comprador. Só compra de verdade conta (tipo=venda,
+// status=aprovada); respeita a RLS de quem está logado (gerência vê tudo,
+// consultor só o que o RLS já deixaria ver). excludeId tira a própria ordem
+// da conta quando editando uma já aprovada.
+export async function buscarHistoricoCliente(cpfCnpj: string, excludeId?: string): Promise<number> {
+  const cpf = cpfCnpj?.trim()
+  if (!cpf) return 0
+
+  const supabase = await createClient()
+  let query = supabase
+    .from('ordens_servico')
+    .select('*', { count: 'exact', head: true })
+    .eq('tipo', 'venda')
+    .eq('status', 'aprovada')
+    .eq('cliente_cpf_cnpj', cpf)
+  if (excludeId) query = query.neq('id', excludeId)
+
+  const { count } = await query
+  return count ?? 0
+}
