@@ -163,9 +163,11 @@ export function CorridaMeta() {
       <button
         type="button"
         onClick={() => setAberto((v) => !v)}
-        className="fixed bottom-4 right-4 z-50 flex items-center gap-2 rounded-full bg-[var(--coral)] px-4 py-2.5 text-[.72rem] font-extrabold uppercase tracking-wide text-white shadow-lg hover:brightness-110"
+        aria-label="Corrida da Meta"
+        className="fixed bottom-4 right-4 z-50 flex h-11 w-11 items-center justify-center gap-2 rounded-full bg-[var(--coral)] text-[.72rem] font-extrabold uppercase tracking-wide text-white shadow-lg hover:brightness-110 sm:h-auto sm:w-auto sm:px-4 sm:py-2.5"
       >
-        🏁 Corrida da Meta
+        <span className="text-[1rem] sm:text-[.72rem]">🏁</span>
+        <span className="hidden sm:inline">Corrida da Meta</span>
       </button>
     </>
   )

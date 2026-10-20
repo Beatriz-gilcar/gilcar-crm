@@ -284,13 +284,15 @@ export function LembretesWidget() {
       <button
         type="button"
         onClick={() => setAberto((v) => !v)}
+        aria-label="Lembretes"
         className={`${
           temVencido ? 'lembrete-piscando' : ''
-        } fixed bottom-20 right-4 z-50 flex items-center gap-2 rounded-full bg-[var(--coral)] px-4 py-2.5 text-[.72rem] font-extrabold uppercase tracking-wide text-white shadow-lg hover:brightness-110`}
+        } fixed bottom-20 right-4 z-50 flex h-11 w-11 items-center justify-center gap-2 rounded-full bg-[var(--coral)] text-[.72rem] font-extrabold uppercase tracking-wide text-white shadow-lg hover:brightness-110 sm:h-auto sm:w-auto sm:px-4 sm:py-2.5`}
       >
-        🔔 Lembretes
+        <span className="text-[1rem] sm:text-[.72rem]">🔔</span>
+        <span className="hidden sm:inline">Lembretes</span>
         {lembretes.length > 0 && (
-          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1 text-[.66rem] font-bold text-[var(--coral)]">
+          <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1 text-[.66rem] font-bold text-[var(--coral)] sm:static">
             {lembretes.length}
           </span>
         )}
