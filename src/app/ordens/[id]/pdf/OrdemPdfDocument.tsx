@@ -222,6 +222,27 @@ export function OrdemPdfDocument({
           <Campo label="Placa" value={ordem.veiculo_placa} />
           <Campo label="KM" value={ordem.veiculo_km} />
         </View>
+        {trocasMostrar.map((t, i) => (
+          <View key={i}>
+            <Text style={styles.secTitle}>
+              Veículo de Troca{trocasMostrar.length > 1 ? ` ${i + 1}` : ''}
+            </Text>
+            <View style={styles.row}>
+              <Campo label="Marca" value={t.marca} />
+              <Campo label="Modelo" value={t.modelo} />
+              <Campo label="Ano" value={t.ano} />
+            </View>
+            <View style={styles.row}>
+              <Campo label="Placa" value={t.placa} />
+              <Campo label="Valor avaliado" value={formatBRL(t.valor_avaliado)} />
+              <Campo label="Dívida" value={formatBRL(t.divida)} />
+            </View>
+            <View style={styles.row}>
+              <Campo label="Valor líquido" value={formatBRL(t.valor_liquido)} />
+            </View>
+          </View>
+        ))}
+
         <View style={styles.row}>
           <Campo label="Valor do veículo" value={formatBRL(ordem.valor_total)} />
         </View>
